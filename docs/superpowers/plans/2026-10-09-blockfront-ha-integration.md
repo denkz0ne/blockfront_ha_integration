@@ -6,7 +6,7 @@
 
 **Architecture:** Use one config entry keyed by resolved player UUID and a small aiohttp API client. Four independent coordinators poll profile, matches, online count, and service status at validated options-flow intervals; sensors subscribe to the relevant coordinator and preserve last known good values across failed updates.
 
-**Tech Stack:** Python 3.13+, Home Assistant config entries and DataUpdateCoordinator, aiohttp, pytest with pytest-homeassistant-custom-component, GitHub Actions and hassfest.
+**Tech Stack:** Python 3.12+, Home Assistant config entries and DataUpdateCoordinator, aiohttp, pytest with pytest-homeassistant-custom-component, GitHub Actions and hassfest.
 
 **Spec:** `docs/superpowers/specs/2026-10-09-blockfront-ha-integration-design.md`
 
@@ -43,6 +43,7 @@
 - Create: `tests/test_config_flow.py`
 - Create: `tests/test_api.py`
 - Create: `requirements_test.txt`
+- Create: `requirements_ha_test.txt`
 - Create: `pyproject.toml`
 
 **Interfaces:** `BlockFrontApi(session)` provides `async_resolve_player(username) -> dict`, `async_get_player(uuid) -> dict`, `async_get_matches(uuid) -> dict`, `async_get_overview() -> dict`, `async_get_status() -> dict`, and `async_get_official_online_count() -> int`. `BlockFrontConfigFlow` stores normalized username and resolved UUID. `BlockFrontOptionsFlow` independently validates `profile_interval`, `matches_interval`, `online_interval`, and `status_interval` in seconds.

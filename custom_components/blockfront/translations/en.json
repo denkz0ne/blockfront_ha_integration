@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect a BlockFront player",
+        "description": "Enter the BlockFront username whose public statistics you want to track.",
+        "data": {
+          "username": "BlockFront username"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "Enter a valid Minecraft username (3–16 letters, numbers, or underscores).",
+      "invalid_player": "The BlockFront player could not be found.",
+      "cannot_connect": "Could not contact the BlockFront statistics service. Try again later."
+    },
+    "abort": {
+      "already_configured": "This BlockFront player is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Polling intervals",
+        "description": "Intervals are independent. Shorter intervals cannot make delayed upstream data fresher.",
+        "data": {
+          "profile_interval": "Player statistics interval (seconds)",
+          "matches_interval": "Recent matches interval (seconds)",
+          "online_interval": "Online players interval (seconds)",
+          "status_interval": "Service status interval (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "kills": {"name": "Kills"},
+      "deaths": {"name": "Deaths"},
+      "kd_ratio": {"name": "Kill/death ratio"},
+      "head_shots": {"name": "Headshots"},
+      "first_bloods": {"name": "First bloods"},
+      "no_scopes": {"name": "No-scopes"},
+      "total_games": {"name": "Matches played"},
+      "time_played": {"name": "Time played"},
+      "rank": {"name": "Rank"},
+      "prestige": {"name": "Prestige"},
+      "latest_match": {"name": "Latest match"},
+      "online_players": {"name": "Players online"},
+      "service_status": {"name": "Statistics service status"}
+    }
+  }
+}

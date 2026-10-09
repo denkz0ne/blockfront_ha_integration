@@ -1,0 +1,6 @@
+{
+  "content_in_root": false,
+  "homeassistant": "2025.1.0",
+  "name": "BlockFront Stats",
+  "render_readme": true
+}
