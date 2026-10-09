@@ -343,6 +343,8 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             return None
         if isinstance(value, str) and not value:
             return None
+        if self.entity_description.key in {"kd_ratio", "hs_kr"}:
+            return round(value, 2)
         return value
 
     @property
