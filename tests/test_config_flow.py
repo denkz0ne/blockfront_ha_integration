@@ -27,8 +27,15 @@ async def test_config_flow_resolves_username_and_creates_entry(hass) -> None:
     with (
         patch("custom_components.blockfront.config_flow.async_get_clientsession"),
         patch("custom_components.blockfront.config_flow.BlockFrontApi") as api_class,
+        patch("custom_components.blockfront.coordinator.BlockFrontApi") as coordinator_api,
     ):
         api_class.return_value.async_resolve_player = AsyncMock(return_value=PLAYER_UUID)
+        coordinator_api.return_value.async_get_player = AsyncMock(return_value={})
+        coordinator_api.return_value.async_get_matches = AsyncMock(return_value=[])
+        coordinator_api.return_value.async_get_status = AsyncMock(return_value={})
+        coordinator_api.return_value.async_get_overview = AsyncMock(
+            return_value={"online": {"playersOnline": 0}}
+        )
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": "user"}
         )
@@ -62,7 +69,9 @@ async def test_config_flow_shows_error_for_unknown_player(hass) -> None:
         patch("custom_components.blockfront.config_flow.async_get_clientsession"),
         patch("custom_components.blockfront.config_flow.BlockFrontApi") as api_class,
     ):
-        api_class.return_value.async_resolve_player = AsyncMock(side_effect=PlayerNotFound)
+        api_class.return_value.async_resolve_player = AsyncMock(
+            side_effect=PlayerNotFound("unknown player")
+        )
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": "user"}
         )
@@ -114,7 +123,7 @@ async def test_options_flow_shows_independent_default_intervals(hass) -> None:
     assert result["type"] is FlowResultType.FORM
     schema = result["data_schema"].schema
     defaults = {
-        marker.schema: marker.default()() if callable(marker.default) else marker.default
+        marker.schema: marker.default() if callable(marker.default) else marker.default
         for marker in schema
     }
     assert defaults == DEFAULT_OPTIONS
