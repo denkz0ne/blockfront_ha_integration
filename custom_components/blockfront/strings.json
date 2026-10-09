@@ -44,9 +44,33 @@
       "time_played": {"name": "Time played"},
       "rank": {"name": "Rank"},
       "prestige": {"name": "Prestige"},
+      "assists": {"name": "Assists"},
+      "back_stabs": {"name": "Back stabs"},
+      "bot_kills": {"name": "Bot kills"},
+      "captures": {"name": "Captures"},
+      "exp": {"name": "Experience"},
+      "class_exp": {"name": "Class XP"},
+      "fire_kills": {"name": "Fire kills"},
+      "heal_assists": {"name": "Healing assists"},
+      "highest_death_streak": {"name": "Highest death streak"},
+      "highest_kill_streak": {"name": "Highest kill streak"},
+      "hs_kr": {"name": "Headshot kill ratio"},
+      "infected_kills": {"name": "Infected kills"},
+      "infected_matches_won": {"name": "Infected matches won"},
+      "infected_rounds_won": {"name": "Infected rounds won"},
+      "match_karma": {"name": "Match karma"},
+      "objective_score": {"name": "Objective score"},
+      "trophies": {"name": "Trophies"},
+      "vehicle_kills": {"name": "Vehicle kills"},
+      "skill_rank": {"name": "Skill rank"},
+      "clan": {"name": "Clan"},
       "latest_match": {"name": "Latest match"},
+      "latest_match_score": {"name": "Latest match score"},
       "online_players": {"name": "Players online"},
       "service_status": {"name": "Statistics service status"}
     }
+  },
+  "binary_sensor": {
+    "bootcamp": {"name": "Bootcamp"}
   }
 }

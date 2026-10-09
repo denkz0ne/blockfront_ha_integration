@@ -23,10 +23,17 @@ The integration creates one BlockFront player device with these entities:
 | Sensor | Data |
 | --- | --- |
 | Kills, deaths, kill/death ratio, headshots, first bloods, no-scopes | Public lifetime profile values |
-| Matches played, time played, rank, prestige | Public profile values when supplied by the API |
-| Latest match | Result as the state; map, game mode, date, kills, deaths, assists, score, team, duration, placement, and match ID as attributes |
+| Assists, back stabs, bot kills, fire kills, infected kills, vehicle kills | Public lifetime combat statistics |
+| Captures, objective score, heal assists | Public objective and support statistics |
+| Experience, class XP, rank, skill rank, prestige, trophies, karma | XP, class progression, game rank, skill rank, prestige, trophies, and match karma |
+| Highest kill/death streak, infected rounds/matches won, headshot kill ratio | Additional public player values when the API supplies them |
+| Clan, bootcamp | Clan text sensor and a bootcamp binary sensor |
+| Latest match | Result as state; map, mode, time, kills, deaths, assists, score, teams, duration, placement, and match ID as attributes |
+| Latest match score | Numeric score from the most recent match |
 | Players online | Blocklytics overview count, with the official website as a fallback |
 | Statistics service status | `online`, `degraded`, or `unavailable`, with stale-feed and error details |
+
+The class XP sensor reports the sum as its numeric state and exposes the individual API class IDs and XP values in its `class_exp` attribute. The skill-rank sensor state is the title; its index and color are attributes. Unknown or missing API values remain unknown instead of becoming zero.
 
 Missing values remain unknown; they are not converted to zero. Profile, latest match, and online sensors include their last successful update and stale/error attributes. The online sensor's `source` is `blocklytics` or `official_website`.
 

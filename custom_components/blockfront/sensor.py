@@ -96,8 +96,146 @@ SENSOR_DESCRIPTIONS = (
         state_class=SensorStateClass.TOTAL_INCREASING,
     ),
     BlockFrontSensorDescription(
+        key="assists", translation_key="assists", coordinator_key="profile", value_key="assists",
+        icon="mdi:handshake",
+        native_unit_of_measurement="assists",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="back_stabs", translation_key="back_stabs", coordinator_key="profile",
+        value_key="back_stabs",
+        icon="mdi:knife",
+        native_unit_of_measurement="kills",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="bot_kills",
+        translation_key="bot_kills",
+        coordinator_key="profile",
+        value_key="bot_kills",
+        icon="mdi:robot",
+        native_unit_of_measurement="kills",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="captures", translation_key="captures", coordinator_key="profile", value_key="captures",
+        icon="mdi:flag-checkered",
+        native_unit_of_measurement="captures",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="exp", translation_key="exp", coordinator_key="profile", value_key="exp",
+        icon="mdi:star-four-points",
+        native_unit_of_measurement="XP",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="class_exp", translation_key="class_exp", coordinator_key="profile",
+        value_key="class_exp",
+        icon="mdi:account-star",
+        native_unit_of_measurement="XP",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="fire_kills", translation_key="fire_kills", coordinator_key="profile",
+        value_key="fire_kills",
+        icon="mdi:fire",
+        native_unit_of_measurement="kills",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="heal_assists", translation_key="heal_assists", coordinator_key="profile",
+        value_key="heal_assists",
+        icon="mdi:medical-bag",
+        native_unit_of_measurement="assists",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="highest_death_streak", translation_key="highest_death_streak",
+        coordinator_key="profile", value_key="highest_death_streak",
+        icon="mdi:skull-crossbones",
+        native_unit_of_measurement="deaths",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="highest_kill_streak", translation_key="highest_kill_streak",
+        coordinator_key="profile", value_key="highest_kill_streak",
+        icon="mdi:fire-circle",
+        native_unit_of_measurement="kills",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="hs_kr", translation_key="hs_kr", coordinator_key="profile", value_key="hs_kr",
+        icon="mdi:crosshairs-gps",
+        suggested_display_precision=2,
+    ),
+    BlockFrontSensorDescription(
+        key="infected_kills", translation_key="infected_kills", coordinator_key="profile",
+        value_key="infected_kills",
+        icon="mdi:zombie",
+        native_unit_of_measurement="kills",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="infected_matches_won", translation_key="infected_matches_won",
+        coordinator_key="profile", value_key="infected_matches_won",
+        icon="mdi:trophy",
+        native_unit_of_measurement="matches",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="infected_rounds_won", translation_key="infected_rounds_won",
+        coordinator_key="profile", value_key="infected_rounds_won",
+        icon="mdi:check-decagram",
+        native_unit_of_measurement="rounds",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="match_karma", translation_key="match_karma", coordinator_key="profile",
+        value_key="match_karma",
+        icon="mdi:heart",
+        native_unit_of_measurement="karma",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="objective_score", translation_key="objective_score", coordinator_key="profile",
+        value_key="objective_score",
+        icon="mdi:flag",
+        native_unit_of_measurement="points",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="trophies", translation_key="trophies", coordinator_key="profile", value_key="trophies",
+        icon="mdi:trophy-variant",
+        native_unit_of_measurement="trophies",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="vehicle_kills", translation_key="vehicle_kills", coordinator_key="profile",
+        value_key="vehicle_kills",
+        icon="mdi:car",
+        native_unit_of_measurement="kills",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    BlockFrontSensorDescription(
+        key="skill_rank", translation_key="skill_rank", coordinator_key="profile",
+        value_key="skill_rank",
+        icon="mdi:medal-outline",
+    ),
+    BlockFrontSensorDescription(
+        key="clan", translation_key="clan", coordinator_key="profile", value_key="clan",
+        icon="mdi:account-group",
+    ),
+    BlockFrontSensorDescription(
         key="latest_match", translation_key="latest_match", coordinator_key="matches",
         icon="mdi:clipboard-text-clock",
+    ),
+    BlockFrontSensorDescription(
+        key="latest_match_score", translation_key="latest_match_score",
+        coordinator_key="matches", value_key="score",
+        icon="mdi:counter",
+        native_unit_of_measurement="points",
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     BlockFrontSensorDescription(
         key="online_players", translation_key="online_players", coordinator_key="online",
@@ -182,6 +320,11 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             matches = value.get("matches")
             if not isinstance(matches, list) or not matches:
                 return None
+            if self.entity_description.key == "latest_match_score":
+                result = matches[0].get("score")
+                if isinstance(result, (int, float)) and not isinstance(result, bool):
+                    return result
+                return None
             result = matches[0].get("result")
             return result if isinstance(result, str) and result else None
 
@@ -192,6 +335,10 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         else:
             value = value.get(self.entity_description.value_key)
 
+        if self.entity_description.value_key == "class_exp":
+            return _class_exp_total(value)
+        if self.entity_description.value_key == "skill_rank":
+            return value.get("title") if isinstance(value, dict) else None
         if isinstance(value, bool) or not isinstance(value, (str, int, float)):
             return None
         if isinstance(value, str) and not value:
@@ -213,7 +360,19 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             return attributes
 
         key = self.entity_description.coordinator_key
-        if key == "matches":
+        if key == "profile":
+            if self.entity_description.value_key == "class_exp":
+                attributes["class_exp"] = _class_exp_by_id(value.get("class_exp"))
+            elif self.entity_description.value_key == "skill_rank":
+                skill_rank = value.get("skill_rank")
+                if isinstance(skill_rank, dict):
+                    attributes.update(
+                        {
+                            "skill_rank_index": skill_rank.get("index"),
+                            "skill_rank_color": skill_rank.get("color"),
+                        }
+                    )
+        elif key == "matches":
             matches = value.get("matches")
             match = matches[0] if isinstance(matches, list) and matches else None
             if isinstance(match, dict):
@@ -239,3 +398,27 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                 }
             )
         return attributes
+
+
+def _class_exp_by_id(value: object) -> dict[str, int]:
+    """Map valid class XP records by API class ID."""
+    if not isinstance(value, list):
+        return {}
+    return {
+        str(item["id"]): item["exp"]
+        for item in value
+        if isinstance(item, dict)
+        and isinstance(item.get("id"), (int, str))
+        and not isinstance(item.get("id"), bool)
+        and isinstance(item.get("exp"), int)
+        and not isinstance(item.get("exp"), bool)
+        and item["exp"] >= 0
+    }
+
+
+def _class_exp_total(value: object) -> int | None:
+    """Sum valid class XP values while keeping malformed data unknown."""
+    if not isinstance(value, list):
+        return None
+    parsed = _class_exp_by_id(value)
+    return sum(parsed.values())

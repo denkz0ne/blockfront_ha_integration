@@ -7,7 +7,7 @@ from datetime import timedelta
 from homeassistant.const import Platform
 
 DOMAIN = "blockfront"
-PLATFORMS = (Platform.SENSOR,)
+PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR)
 
 CONF_USERNAME = "username"
 CONF_PLAYER_UUID = "player_uuid"
