@@ -27,6 +27,7 @@ async def test_config_flow_resolves_username_and_creates_entry(hass) -> None:
     with (
         patch("custom_components.blockfront.config_flow.async_get_clientsession"),
         patch("custom_components.blockfront.config_flow.BlockFrontApi") as api_class,
+        patch("custom_components.blockfront.coordinator.async_get_clientsession"),
         patch("custom_components.blockfront.coordinator.BlockFrontApi") as coordinator_api,
     ):
         api_class.return_value.async_resolve_player = AsyncMock(return_value=PLAYER_UUID)
