@@ -78,9 +78,9 @@
       "cloud_trouble_town_players": {"name": "Trouble Town players"},
       "cloud_polling_status": {"name": "Cloud API polling status"},
       "service_status": {"name": "Statistics service status"}
+    },
+    "binary_sensor": {
+      "bootcamp": {"name": "Bootcamp"}
     }
-  },
-  "binary_sensor": {
-    "bootcamp": {"name": "Bootcamp"}
   }
 }
