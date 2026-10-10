@@ -23,6 +23,30 @@ from .coordinator import BlockFrontConfigEntry, BlockFrontCoordinator
 
 PARALLEL_UPDATES = 0
 
+RANK_EXP_THRESHOLDS = (
+    0,
+    1,
+    1001,
+    3001,
+    6001,
+    10001,
+    16001,
+    23501,
+    32501,
+    43001,
+    55001,
+    69001,
+    85001,
+    103001,
+    123001,
+    145001,
+    169001,
+    195001,
+    223001,
+    253001,
+)
+ICON_BASE_PATH = "/api/blockfront/icons"
+
 
 @dataclass(frozen=True, kw_only=True)
 class BlockFrontSensorDescription(SensorEntityDescription):
@@ -30,6 +54,7 @@ class BlockFrontSensorDescription(SensorEntityDescription):
 
     coordinator_key: str
     value_key: str | None = None
+    game_mode: str | None = None
 
 
 SENSOR_DESCRIPTIONS = (
@@ -245,6 +270,56 @@ SENSOR_DESCRIPTIONS = (
         state_class=SensorStateClass.MEASUREMENT,
     ),
     BlockFrontSensorDescription(
+        key="cloud_bootcamp_players", translation_key="cloud_bootcamp_players",
+        coordinator_key="online", game_mode="boot", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_domination_players", translation_key="cloud_domination_players",
+        coordinator_key="online", game_mode="dom", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_offensive_players", translation_key="cloud_offensive_players",
+        coordinator_key="online", game_mode="of", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_defusal_players", translation_key="cloud_defusal_players",
+        coordinator_key="online", game_mode="def", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_team_deathmatch_players", translation_key="cloud_team_deathmatch_players",
+        coordinator_key="online", game_mode="tdm", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_gun_game_players", translation_key="cloud_gun_game_players",
+        coordinator_key="online", game_mode="gg", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_free_for_all_players", translation_key="cloud_free_for_all_players",
+        coordinator_key="online", game_mode="ffa", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_infected_players", translation_key="cloud_infected_players",
+        coordinator_key="online", game_mode="inf", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_trouble_town_players", translation_key="cloud_trouble_town_players",
+        coordinator_key="online", game_mode="ttt", icon="mdi:account-group",
+        native_unit_of_measurement="players", state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="cloud_polling_status", translation_key="cloud_polling_status",
+        coordinator_key="online", value_key="polling_status", icon="mdi:cloud-sync",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BlockFrontSensorDescription(
         key="service_status", translation_key="service_status", coordinator_key="status",
         value_key="status",
         icon="mdi:server-network",
@@ -309,6 +384,33 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         )
 
     @property
+    def entity_picture(self) -> str | None:
+        """Return a locally served BlockFront rank badge for rank sensors."""
+        if self.entity_description.coordinator_key != "profile":
+            return None
+
+        profile = (self.coordinator.data or {}).get("value")
+        if not isinstance(profile, dict):
+            return None
+
+        if self.entity_description.key == "skill_rank":
+            skill_rank = profile.get("skill_rank")
+            index = skill_rank.get("index") if isinstance(skill_rank, dict) else None
+            if (
+                isinstance(index, int)
+                and not isinstance(index, bool)
+                and 0 <= index <= 16
+            ):
+                return f"{ICON_BASE_PATH}/skill_ranks/{index}.png"
+            return f"{ICON_BASE_PATH}/skill_ranks/none.png"
+
+        if self.entity_description.key == "rank":
+            index = _rank_image_index(profile.get("exp"))
+            if index is not None:
+                return f"{ICON_BASE_PATH}/ranks/{index}.png"
+        return None
+
+    @property
     def native_value(self) -> str | int | float | None:
         """Return a validated state value without inventing missing values."""
         data = self.coordinator.data or {}
@@ -327,6 +429,15 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                 return None
             result = matches[0].get("result")
             return result if isinstance(result, str) and result else None
+
+        if self.entity_description.game_mode is not None:
+            counts = value.get("game_player_count")
+            if not isinstance(counts, dict):
+                return None
+            result = counts.get(self.entity_description.game_mode)
+            if isinstance(result, int) and not isinstance(result, bool) and result >= 0:
+                return result
+            return None
 
         if self.entity_description.value_key is None:
             return None
@@ -383,13 +494,41 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                 )
                 attributes["recent_matches_available"] = len(matches)
         elif key == "online":
+            rate_limit = value.get("rate_limit")
+            if not isinstance(rate_limit, dict):
+                rate_limit = {}
             attributes.update(
                 {
                     "source": value.get("source"),
                     "source_timestamp": value.get("source_timestamp"),
                     "api_error": value.get("api_error"),
+                    "cloud_polling_status": value.get("polling_status"),
+                    "cloud_stale": value.get("polling_status") != "available",
+                    "cloud_last_successful_update": value.get(
+                        "cloud_last_successful_update"
+                    ),
+                    "cloud_retry_after": value.get("retry_after"),
+                    "cloud_rate_limit_limit": _rate_limit_value(
+                        rate_limit, "RateLimit-Limit", "X-RateLimit-Limit"
+                    ),
+                    "cloud_rate_limit_remaining": _rate_limit_value(
+                        rate_limit, "RateLimit-Remaining", "X-RateLimit-Remaining"
+                    ),
+                    "cloud_rate_limit_reset": _rate_limit_value(
+                        rate_limit, "RateLimit-Reset", "X-RateLimit-Reset"
+                    ),
+                    "cloud_rate_limit_headers": rate_limit,
+                    "scoreboard_reset_time": value.get("scoreboard_reset_time"),
+                    "players_by_game_mode": value.get("game_player_count"),
                 }
             )
+            if self.entity_description.key == "cloud_polling_status":
+                attributes["poll_interval_seconds"] = int(
+                    self.coordinator.update_interval.total_seconds()
+                )
+            if self.entity_description.game_mode is not None:
+                attributes["game_mode"] = self.entity_description.game_mode
+                attributes["players_online"] = value.get("online_count")
         elif key == "status":
             attributes.update(
                 {
@@ -418,9 +557,30 @@ def _class_exp_by_id(value: object) -> dict[str, int]:
     }
 
 
+def _rank_image_index(exp: object) -> int | None:
+    """Map player EXP to the rank badge index used by the stats page."""
+    if not isinstance(exp, int) or isinstance(exp, bool) or exp < 0:
+        return None
+    index = -1
+    for candidate, threshold in enumerate(RANK_EXP_THRESHOLDS):
+        if exp < threshold:
+            break
+        index = candidate
+    return index if index >= 0 else None
+
+
 def _class_exp_total(value: object) -> int | None:
     """Sum valid class XP values while keeping malformed data unknown."""
     if not isinstance(value, list):
         return None
     parsed = _class_exp_by_id(value)
     return sum(parsed.values())
+
+
+def _rate_limit_value(headers: dict[str, Any], *keys: str) -> str | None:
+    """Return the first provided quota header without inventing a limit."""
+    for key in keys:
+        value = headers.get(key)
+        if isinstance(value, str):
+            return value
+    return None

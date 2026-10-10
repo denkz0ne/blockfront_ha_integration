@@ -30,14 +30,18 @@ The integration creates one BlockFront player device with these entities:
 | Clan, bootcamp | Clan text sensor and a bootcamp binary sensor |
 | Latest match | Result as state; map, mode, time, kills, deaths, assists, score, teams, duration, placement, and match ID as attributes |
 | Latest match score | Numeric score from the most recent match |
-| Players online | Blocklytics overview count, with the official website as a fallback |
+| Players online | Direct BlockFront cloud API count, with the official website as a fallback |
+| Bootcamp, Domination, Offensive, Defusal, Team Deathmatch, Gun Game, Free For All, Infected, Trouble Town players | Current player count by game mode from the direct cloud API |
+| Cloud API polling status | Direct API polling state (`available`, `rate_limited`, or `unavailable`) |
 | Statistics service status | `online`, `degraded`, or `unavailable`, with stale-feed and error details |
 
-The class XP sensor reports the sum as its numeric state and exposes the individual API class IDs and XP values in its `class_exp` attribute. The skill-rank sensor state is the title; its index and color are attributes. Unknown or missing API values remain unknown instead of becoming zero.
+The class XP sensor reports the sum as its numeric state and exposes the individual API class IDs and XP values in its `class_exp` attribute. The skill-rank sensor state is the title; its index and color are attributes. The Rank and Skill rank sensors also show their matching BlockFront badge as a locally served entity picture. Unknown or missing API values remain unknown instead of becoming zero.
 
-Missing values remain unknown; they are not converted to zero. Profile, latest match, and online sensors include their last successful update and stale/error attributes. The online sensor's `source` is `blocklytics` or `official_website`.
+Missing values remain unknown; they are not converted to zero. Profile, latest match, and online sensors include their last successful update and stale/error attributes. The online sensor's `source` is `blockfront_cloud_api` or `official_website`. The mode sensors use the same polling interval as the total online count and retain their previous values when the cloud API is unavailable.
 
 The service status sensor checks both API reachability and the feed-health information returned by `/status`. A reachable API can still be `degraded` when its upstream feeds are stale or failing.
+
+The rank badge PNGs are bundled from the public [Vuis BlockFront stats page](https://vuis.dev/blockfront_stats/player.html) and served locally by Home Assistant, so entity pictures do not need to load image assets from Vuis at display time.
 
 ## Refresh intervals
 
@@ -56,9 +60,9 @@ The existing BlockFront online-player parser in your Home Assistant setup is not
 
 ## Data freshness and limitations
 
-The integration uses the public API at `https://preview.blocklytics.naknu.li/api/v1/`. The API has its own cache and upstream collection schedule. A recent Home Assistant fetch does not guarantee fresh game data; the integration exposes timestamps and stale/error information where available.
+Player profile, recent matches, and service health use `https://preview.blocklytics.naknu.li/api/v1/`. The live cloud counts use `https://blockfrontapi.vuis.dev/api/v1/cloud_data` directly, matching the source used by [Vuis cloud stats](https://vuis.dev/blockfront_stats/cloud.html). A recent Home Assistant fetch does not guarantee fresher game data than the API's upstream feed.
 
-The official website fallback reads the server-rendered `N Players Online Now!` text from `https://www.blockfrontmc.com/`. This is not a documented API. If the website markup changes, the fallback reports an error and retains the last known count rather than reporting zero.
+The official website fallback reads the server-rendered `N Players Online Now!` text from `https://www.blockfrontmc.com/`. This is not a documented API. If the website markup changes, the fallback reports an error and retains the last known count rather than reporting zero. The Vuis endpoint returned no rate-limit headers during inspection, so the integration cannot show a fixed requests-per-minute quota. Its polling status sensor reports successful access, HTTP 429 rate limiting (including `Retry-After` when present), or unavailability; any rate-limit headers supplied by the API are exposed as attributes. Cloud polling follows the configurable online-player interval (default 5 minutes, minimum 1 minute).
 
 Recent match history and public profile availability are controlled by BlockFront and its data provider. The integration makes no game-changing requests and needs no credentials.
 

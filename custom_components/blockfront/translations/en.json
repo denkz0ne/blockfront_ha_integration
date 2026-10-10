@@ -67,6 +67,16 @@
       "latest_match": {"name": "Latest match"},
       "latest_match_score": {"name": "Latest match score"},
       "online_players": {"name": "Players online"},
+      "cloud_bootcamp_players": {"name": "Bootcamp players"},
+      "cloud_domination_players": {"name": "Domination players"},
+      "cloud_offensive_players": {"name": "Offensive players"},
+      "cloud_defusal_players": {"name": "Defusal players"},
+      "cloud_team_deathmatch_players": {"name": "Team Deathmatch players"},
+      "cloud_gun_game_players": {"name": "Gun Game players"},
+      "cloud_free_for_all_players": {"name": "Free For All players"},
+      "cloud_infected_players": {"name": "Infected players"},
+      "cloud_trouble_town_players": {"name": "Trouble Town players"},
+      "cloud_polling_status": {"name": "Cloud API polling status"},
       "service_status": {"name": "Statistics service status"}
     }
   },

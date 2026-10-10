@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .api import ApiError, BlockFrontApi, async_fetch_online_data, parse_service_status
+from .api import ApiError, BlockFrontApi, async_fetch_cloud_data, parse_service_status
 from .const import DOMAIN, get_update_interval
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,6 +56,16 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 service_data = dict(previous.get("value", {}))
                 service_data["status"] = "unavailable"
                 previous["value"] = service_data
+            elif self._name == "online":
+                cloud_data = dict(previous.get("value", {}))
+                cloud_data["polling_status"] = (
+                    "rate_limited" if err.status_code == 429 else "unavailable"
+                )
+                cloud_data["retry_after"] = err.retry_after
+                if err.rate_limit:
+                    cloud_data["rate_limit"] = err.rate_limit
+                cloud_data["api_error"] = str(err)
+                previous["value"] = cloud_data
             return {
                 **previous,
                 "updated_at": previous.get("updated_at"),
@@ -64,6 +74,18 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "stale": True,
                 "last_error": str(err),
             }
+
+        value = dict(value)
+        if self._name == "online":
+            previous_value = (self.data or {}).get("value", {})
+            if value.get("game_player_count") is None and isinstance(previous_value, dict):
+                value["game_player_count"] = previous_value.get("game_player_count")
+                value["scoreboard_reset_time"] = previous_value.get("scoreboard_reset_time")
+                value["cloud_last_successful_update"] = previous_value.get(
+                    "cloud_last_successful_update"
+                )
+            elif value.get("polling_status") == "available":
+                value["cloud_last_successful_update"] = attempted_at
 
         return {
             "value": value,
@@ -124,13 +146,19 @@ def create_runtime(
             entry,
             "online",
             get_update_interval(options, "online"),
-            lambda: async_fetch_online_data(api),
+            lambda: async_fetch_cloud_data(api),
             {
                 "value": {
                     "online_count": None,
+                    "game_player_count": None,
+                    "scoreboard_reset_time": None,
                     "source": None,
                     "source_timestamp": None,
                     "api_error": None,
+                    "polling_status": "unavailable",
+                    "retry_after": None,
+                    "rate_limit": {},
+                    "cloud_last_successful_update": None,
                 }
             },
         ),
