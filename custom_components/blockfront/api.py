@@ -120,6 +120,10 @@ class BlockFrontApi:
                     payload = await response.json(content_type=None)
                 except (aiohttp.ContentTypeError, json.JSONDecodeError, UnicodeDecodeError) as err:
                     raise ApiError(f"{service_name} returned invalid JSON") from err
+                if not isinstance(payload, dict):
+                    raise ApiError(f"{service_name} returned an invalid response")
+                if public:
+                    _validate_public_response(path, payload)
         except ApiError as err:
             if public:
                 self.public_last_error = str(err)
@@ -131,8 +135,6 @@ class BlockFrontApi:
                 raise ApiError(f"{service_name} request timed out") from err
             raise ApiError(f"{service_name} request failed: {err.__class__.__name__}") from err
 
-        if not isinstance(payload, dict):
-            raise ApiError(f"{service_name} returned an invalid response")
         if public:
             self.public_last_success = datetime.now(UTC).isoformat()
             self.public_last_error = None
@@ -506,6 +508,29 @@ def unpack_response(payload: object, expected_type: type) -> tuple[Any, dict[str
     if not isinstance(meta.get("stale"), bool):
         raise ApiError("Blocklytics returned invalid freshness metadata")
     return data, meta
+
+
+def _validate_public_response(path: str, payload: dict[str, Any]) -> None:
+    """Validate endpoint structure before recording a successful public request."""
+    collection = path == "players/search" or path.endswith(("/matches", "/maps", "/modes"))
+    data, _ = unpack_response(payload, list if collection else dict)
+    if collection and any(not isinstance(item, dict) for item in data):
+        raise ApiError("Blocklytics returned invalid collection entries")
+    if path == "players/search":
+        for item in data:
+            if not isinstance(item.get("username"), str):
+                raise ApiError("Blocklytics returned an invalid player search result")
+            try:
+                UUID(item["uuid"])
+            except (KeyError, ValueError, TypeError, AttributeError) as err:
+                raise ApiError("Blocklytics returned an invalid player UUID") from err
+    elif re.fullmatch(r"players/[^/]+", path):
+        if not isinstance(data.get("stats"), dict):
+            raise ApiError("Blocklytics returned invalid lifetime statistics")
+    elif path == "online":
+        parse_online_count({"online": data})
+    elif path == "status":
+        parse_service_status(payload)
 
 
 def _retry_seconds(value: object) -> float | None:
