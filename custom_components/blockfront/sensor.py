@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from math import isfinite
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -327,8 +329,65 @@ SENSOR_DESCRIPTIONS = (
     ),
 )
 
+# Analytics describe the recorded sample, never the player's full career.
+SENSOR_DESCRIPTIONS += (
+    BlockFrontSensorDescription(
+        key="tracked_matches", translation_key="tracked_matches", coordinator_key="analytics",
+        value_key="tracked_matches", icon="mdi:clipboard-list",
+        native_unit_of_measurement="matches",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="recorded_wins", translation_key="recorded_wins", coordinator_key="analytics",
+        value_key="recorded_wins", icon="mdi:trophy", native_unit_of_measurement="matches",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="recorded_losses", translation_key="recorded_losses", coordinator_key="analytics",
+        value_key="recorded_losses", icon="mdi:shield-off", native_unit_of_measurement="matches",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="recorded_win_rate", translation_key="recorded_win_rate", coordinator_key="analytics",
+        value_key="recorded_win_rate", icon="mdi:trophy-outline", native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT, suggested_display_precision=2,
+    ),
+    BlockFrontSensorDescription(
+        key="average_match_score", translation_key="average_match_score",
+        coordinator_key="analytics",
+        value_key="average_match_score", icon="mdi:counter", native_unit_of_measurement="points",
+        state_class=SensorStateClass.MEASUREMENT, suggested_display_precision=2,
+    ),
+    BlockFrontSensorDescription(
+        key="most_played_map", translation_key="most_played_map", coordinator_key="analytics",
+        value_key="most_played_map", icon="mdi:map",
+    ),
+    BlockFrontSensorDescription(
+        key="latest_match_duration", translation_key="latest_match_duration",
+        coordinator_key="matches", value_key="duration_seconds",
+        device_class=SensorDeviceClass.DURATION, native_unit_of_measurement=UnitOfTime.SECONDS,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    BlockFrontSensorDescription(
+        key="latest_match_end", translation_key="latest_match_end", coordinator_key="matches",
+        value_key="ended_at", device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    BlockFrontSensorDescription(
+        key="api_polling_status", translation_key="api_polling_status", coordinator_key="status",
+        value_key="api_polling_status", icon="mdi:api", entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BlockFrontSensorDescription(
+        key="api_requests_remaining", translation_key="api_requests_remaining",
+        coordinator_key="status", value_key="api_rate_limit_remaining", icon="mdi:counter",
+        entity_category=EntityCategory.DIAGNOSTIC, native_unit_of_measurement="requests",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+)
+
 _MATCH_ATTRIBUTE_KEYS = (
     "ended_at",
+    "started_at_estimated",
+    "environment",
     "map",
     "game",
     "kills",
@@ -374,6 +433,12 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         self.entity_description = description
         player_uuid = entry.data[CONF_PLAYER_UUID]
         self._username = entry.data[CONF_USERNAME]
+        self._api = (
+            entry.runtime_data.api if description.key.startswith("api_") else None
+        )
+        self._polling_coordinators = (
+            entry.runtime_data.coordinators if self._api is not None else {}
+        )
         self._attr_unique_id = f"{player_uuid}_{description.key}"
         self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
@@ -382,6 +447,13 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             manufacturer="BlockFront",
             model="Player statistics",
         )
+
+    async def async_added_to_hass(self) -> None:
+        """Refresh quota diagnostics after every data group, without extra requests."""
+        await super().async_added_to_hass()
+        for coordinator in self._polling_coordinators.values():
+            if coordinator is not self.coordinator:
+                self.async_on_remove(coordinator.async_add_listener(self.async_write_ha_state))
 
     @property
     def entity_picture(self) -> str | None:
@@ -411,8 +483,10 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         return None
 
     @property
-    def native_value(self) -> str | int | float | None:
+    def native_value(self) -> str | int | float | datetime | None:
         """Return a validated state value without inventing missing values."""
+        if self._api is not None:
+            return self._api.polling_data().get(self.entity_description.value_key)
         data = self.coordinator.data or {}
         value = data.get("value")
         if not isinstance(value, dict):
@@ -422,13 +496,24 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             matches = value.get("matches")
             if not isinstance(matches, list) or not matches:
                 return None
-            if self.entity_description.key == "latest_match_score":
-                result = matches[0].get("score")
-                if isinstance(result, (int, float)) and not isinstance(result, bool):
-                    return result
+            match = matches[0]
+            if not isinstance(match, dict):
                 return None
-            result = matches[0].get("result")
-            return result if isinstance(result, str) and result else None
+            if self.entity_description.key == "latest_match":
+                result = match.get("result")
+                return result if isinstance(result, str) and result else None
+            result = match.get(self.entity_description.value_key)
+            if self.entity_description.device_class == SensorDeviceClass.TIMESTAMP:
+                if isinstance(result, str):
+                    try:
+                        timestamp = datetime.fromisoformat(result.replace("Z", "+00:00"))
+                        return timestamp if timestamp.tzinfo is not None else None
+                    except ValueError:
+                        pass
+                return None
+            if isinstance(result, (int, float)) and not isinstance(result, bool):
+                return result if isfinite(result) else None
+            return None
 
         if self.entity_description.game_mode is not None:
             counts = value.get("game_player_count")
@@ -455,7 +540,9 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         if isinstance(value, str) and not value:
             return None
         if self.entity_description.key in {"kd_ratio", "hs_kr"}:
-            return round(value, 2)
+            return round(value, 2) if isinstance(value, (int, float)) and isfinite(value) else None
+        if isinstance(value, float) and not isfinite(value):
+            return None
         return value
 
     @property
@@ -468,12 +555,32 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             "stale": coordinator_data.get("stale", True),
             "last_error": coordinator_data.get("last_error"),
         }
+        if self._api is not None:
+            polling = self._api.polling_data()
+            attributes.update({
+                "last_successful_update": polling.get("api_last_successful_update"),
+                "last_attempt": polling.get("api_last_attempt"),
+                "last_error": polling.get("api_last_error"),
+                "stale": polling.get("api_polling_status") != "available",
+            })
         value = coordinator_data.get("value")
         if not isinstance(value, dict):
             return attributes
 
+        attributes.update({
+            "source": value.get("source"),
+            "source_timestamp": value.get("source_timestamp"),
+            "source_stale": value.get("source_stale"),
+        })
         key = self.entity_description.coordinator_key
         if key == "profile":
+            attributes["unavailable_fields"] = value.get("unavailable_fields")
+            if self.entity_description.key == "match_karma":
+                attributes["supplement_source"] = value.get("supplement_source")
+                attributes["supplement_error"] = value.get("supplement_error")
+                attributes["source"] = value.get("supplement_source")
+                attributes["stale"] = attributes["stale"] or bool(value.get("supplement_error"))
+                attributes["last_error"] = value.get("supplement_error") or attributes["last_error"]
             if self.entity_description.value_key == "class_exp":
                 attributes["class_exp"] = _class_exp_by_id(value.get("class_exp"))
             elif self.entity_description.value_key == "skill_rank":
@@ -483,6 +590,7 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                         {
                             "skill_rank_index": skill_rank.get("index"),
                             "skill_rank_color": skill_rank.get("color"),
+                            "rating_band": skill_rank.get("ratingBand"),
                         }
                     )
         elif key == "matches":
@@ -493,6 +601,7 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                     {key: match[key] for key in _MATCH_ATTRIBUTE_KEYS if key in match}
                 )
                 attributes["recent_matches_available"] = len(matches)
+                attributes["pagination"] = value.get("pagination")
         elif key == "online":
             rate_limit = value.get("rate_limit")
             if not isinstance(rate_limit, dict):
@@ -502,6 +611,7 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                     "source": value.get("source"),
                     "source_timestamp": value.get("source_timestamp"),
                     "api_error": value.get("api_error"),
+                    "public_api_error": value.get("public_api_error"),
                     "cloud_polling_status": value.get("polling_status"),
                     "cloud_stale": value.get("polling_status") != "available",
                     "cloud_last_successful_update": value.get(
@@ -529,7 +639,28 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             if self.entity_description.game_mode is not None:
                 attributes["game_mode"] = self.entity_description.game_mode
                 attributes["players_online"] = value.get("online_count")
+                attributes["source"] = "blockfront_cloud_api"
+                attributes["source_timestamp"] = value.get("cloud_last_successful_update")
+                attributes["source_stale"] = value.get("polling_status") != "available"
+                attributes["stale"] = attributes["source_stale"]
+                attributes["last_successful_update"] = value.get("cloud_last_successful_update")
+                attributes["last_error"] = value.get("api_error") or attributes["last_error"]
+        elif key == "analytics":
+            attributes.update({
+                "sample_matches": value.get("sample_matches"),
+                "computed_at": value.get("computed_at"),
+                "scope": "recorded_matches_only",
+            })
+            if self.entity_description.key == "most_played_map":
+                attributes["maps"] = _round_rows(value.get("maps"))
+                attributes["modes"] = _round_rows(value.get("modes"))
         elif key == "status":
+            polling = self._api.polling_data() if self._api is not None else value
+            attributes.update({k: v for k, v in polling.items() if k.startswith("api_")})
+            attributes["datasets"] = value.get("datasets")
+            attributes["stale_datasets"] = value.get("stale_datasets")
+            attributes["player_data_available"] = value.get("player_data_available")
+            attributes["server_version"] = value.get("server_version")
             attributes.update(
                 {
                     "stale_feed_count": value.get("stale_feed_count"),
@@ -584,3 +715,14 @@ def _rate_limit_value(headers: dict[str, Any], *keys: str) -> str | None:
         if isinstance(value, str):
             return value
     return None
+
+
+def _round_rows(value: object) -> list[dict[str, Any]] | None:
+    """Keep breakdown attributes compact and display decimal statistics to two places."""
+    if not isinstance(value, list):
+        return None
+    return [
+        {key: round(item, 2) if isinstance(item, float) and isfinite(item) else item
+         for key, item in row.items()}
+        for row in value if isinstance(row, dict)
+    ]

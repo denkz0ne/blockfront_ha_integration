@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -69,3 +71,15 @@ class BlockFrontBinarySensor(
             return None
         bootcamp = value.get(self.entity_description.key)
         return bootcamp if isinstance(bootcamp, bool) else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Distinguish an optional compatibility lookup from the public profile."""
+        data = self.coordinator.data or {}
+        profile = data.get("value") or {}
+        return {
+            "stale": data.get("stale", True) or bool(profile.get("supplement_error")),
+            "last_successful_update": data.get("last_successful_update"),
+            "last_error": profile.get("supplement_error") or data.get("last_error"),
+            "source": profile.get("supplement_source"),
+        }

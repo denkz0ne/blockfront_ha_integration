@@ -2,6 +2,8 @@
 
 A small custom Home Assistant integration for public BlockFront player statistics, recent match details, the public online-player count, and Blocklytics service health.
 
+Player data now uses the versioned [Blocklytics public API](https://api.blocklytics.naknu.li/docs), which stores observations from the official BlockFront API. Blocklytics is an independent community project. No API key is required.
+
 ## Install
 
 ### HACS custom repository
@@ -25,21 +27,30 @@ The integration creates one BlockFront player device with these entities:
 | Kills, deaths, kill/death ratio, headshots, first bloods, no-scopes | Public lifetime profile values |
 | Assists, back stabs, bot kills, fire kills, infected kills, vehicle kills | Public lifetime combat statistics |
 | Captures, objective score, heal assists | Public objective and support statistics |
-| Experience, class XP, rank, skill rank, prestige, trophies, karma | XP, class progression, game rank, skill rank, prestige, trophies, and match karma |
+| Experience, rank, skill rank, prestige | Public military and competitive progression, with local rank badge pictures |
+| Karma, bootcamp | Optional compatibility lookup; absent from the new public profile contract |
+| Class XP, trophies | Existing entities retained, but unknown because the current source does not publish these values |
 | Highest kill/death streak, infected rounds/matches won, headshot kill ratio | Additional public player values when the API supplies them |
 | Clan, bootcamp | Clan text sensor and a bootcamp binary sensor |
 | Latest match | Result as state; map, mode, time, kills, deaths, assists, score, teams, duration, placement, and match ID as attributes |
-| Latest match score | Numeric score from the most recent match |
-| Players online | Direct BlockFront cloud API count, with the official website as a fallback |
+| Latest match score, duration, end | Numeric score, duration in seconds and end timestamp |
+| Tracked matches, recorded wins/losses, recorded win rate, average score | Recorded sample statistics, not lifetime win totals |
+| Most played map | Map name; `maps` and `modes` attributes contain performance tables |
+| Players online | Public `/v1/online`, falling back through Vuis, official count API, then the official website |
 | Bootcamp, Domination, Offensive, Defusal, Team Deathmatch, Gun Game, Free For All, Infected, Trouble Town players | Current player count by game mode from the direct cloud API |
 | Cloud API polling status | Direct API polling state (`available`, `rate_limited`, or `unavailable`) |
-| Statistics service status | `online`, `degraded`, or `unavailable`, with stale-feed and error details |
+| Statistics service status | `online`, `degraded`, or `unavailable`, based on active datasets and player-data availability |
+| Statistics API polling status, requests remaining | Public API backoff and last observed quota, with reset timestamp and header details |
 
-The class XP sensor reports the sum as its numeric state and exposes the individual API class IDs and XP values in its `class_exp` attribute. The skill-rank sensor state is the title; its index and color are attributes. The Rank and Skill rank sensors also show their matching BlockFront badge as a locally served entity picture. Unknown or missing API values remain unknown instead of becoming zero.
+Existing unique IDs, units and bundled rank pictures are preserved. The skill-rank sensor exposes title, index, color and an inferred `rating_band`, not an exact competitive rating. Class XP attributes are retained for compatibility, but the current source does not publish class XP. Missing values remain unknown instead of becoming zero.
 
-Missing values remain unknown; they are not converted to zero. Profile, latest match, and online sensors include their last successful update and stale/error attributes. The online sensor's `source` is `blockfront_cloud_api` or `official_website`. The mode sensors use the same polling interval as the total online count and retain their previous values when the cloud API is unavailable.
+Profile, matches, analytics and online sensors distinguish successful fetch time (`last_successful_update`) from source capture time (`source_timestamp`) and freshness (`source_stale`, also reflected in `stale`). Failed refreshes retain the last good values. Optional karma/bootcamp lookup failures cannot take the public profile offline.
 
-The service status sensor checks both API reachability and the feed-health information returned by `/status`. A reachable API can still be `degraded` when its upstream feeds are stale or failing.
+The latest-match attributes add environment, estimated start (`started_at_estimated`) and pagination details. The start is end minus duration, not a verified video recording timestamp. Only the newest page of 20 matches is fetched.
+
+Mode counts use Vuis independently of the public total. When Vuis fails, previous values remain with `cloud_stale: true`; check `cloud_last_successful_update` before using them.
+
+The service status evaluates active datasets returned by `/v1/status`, excluding retired legacy feeds. A reachable API can still be `degraded` when data is stale or player data is disabled.
 
 The rank badge PNGs are bundled from the public [Vuis BlockFront stats page](https://vuis.dev/blockfront_stats/player.html) and served locally by Home Assistant, so entity pictures do not need to load image assets from Vuis at display time.
 
@@ -53,28 +64,33 @@ Initial defaults are deliberately conservative:
 | Recent matches | 15 minutes | 5 minutes |
 | Online count | 5 minutes | 1 minute |
 | Service status | 15 minutes | 5 minutes |
+| Recorded-match analytics | 30 minutes | 15 minutes |
 
-Change each interval independently from the integration's **Configure** options. The official website is fetched only when the online-count API request fails or returns an unusable count. It is not fetched on successful API updates.
+Change each interval independently from the integration's **Configure** options. Existing settings remain valid; analytics defaults to 30 minutes and makes three requests per refresh. The official website is fetched only when all online-count API sources fail.
 
 The existing BlockFront online-player parser in your Home Assistant setup is not changed by this integration. Its refresh schedule remains under your control.
 
 ## Data freshness and limitations
 
-Player profile, recent matches, and service health use `https://preview.blocklytics.naknu.li/api/v1/`. The live cloud counts use `https://blockfrontapi.vuis.dev/api/v1/cloud_data` directly, matching the source used by [Vuis cloud stats](https://vuis.dev/blockfront_stats/cloud.html). A recent Home Assistant fetch does not guarantee fresher game data than the API's upstream feed.
+Profile, matches, online total, status and recorded analytics use `https://api.blocklytics.naknu.li/v1/`. Vuis `cloud_data` remains the per-mode source. Karma/bootcamp use a narrow optional legacy profile lookup until the public contract exposes them. See [migration notes](docs/api-migration-2026-10.md) for endpoint mappings and compatibility limits.
 
-The official website fallback reads the server-rendered `N Players Online Now!` text from `https://www.blockfrontmc.com/`. This is not a documented API. If the website markup changes, the fallback reports an error and retains the last known count rather than reporting zero. The Vuis endpoint returned no rate-limit headers during inspection, so the integration cannot show a fixed requests-per-minute quota. Its polling status sensor reports successful access, HTTP 429 rate limiting (including `Retry-After` when present), or unavailability; any rate-limit headers supplied by the API are exposed as attributes. Cloud polling follows the configurable online-player interval (default 5 minutes, minimum 1 minute).
+A recent fetch does not guarantee newer game data: public reads do not trigger upstream refreshes. Analytics cover recorded matches only; tracked, paginated and lifetime match counts may differ. Ratio values and performance-table decimals are rounded to two places. Ambiguous percentile fields are not exposed as percentages.
+
+Public quota diagnostics expose last observed headers and timestamps without extra HTTP requests. The limit is token-bucket capacity, not requests per minute; remaining is a snapshot, not a predicted live balance. Reset is converted from delta seconds to a UTC timestamp. HTTP 429 pauses subsequent public requests by this client until Retry-After expires, otherwise reset or a conservative 60 seconds. Other entries/apps behind the same public IP share the quota. Vuis polling diagnostics remain separate; no fixed quota is invented for missing headers.
+
+The official website fallback parses `N Players Online Now!`. Markup changes produce an error and retained stale data, never a fabricated zero.
 
 Recent match history and public profile availability are controlled by BlockFront and its data provider. The integration makes no game-changing requests and needs no credentials.
 
 ## Troubleshooting
 
 - **Could not contact the statistics service:** Retry setup later. The username is resolved during setup, so the API must be reachable at that time.
-- **Service status is degraded:** Check the sensor's `stale_feed_count`, `upstream_error`, `last_error`, and update attributes. A degraded state reflects the service's upstream feed status, not a Home Assistant restart requirement.
-- **Online count uses the official website:** The API count failed validation or could not be fetched. The `api_error` attribute shows the API-side reason.
+- **Service status is degraded:** Check `datasets`, `stale_datasets`, `player_data_available` and `last_error`. This does not imply that HA needs a restart.
+- **Online count uses a fallback:** `public_api_error` and `api_error` distinguish public API and Vuis failures.
 - **A value is unknown:** The API has not supplied that value or the first fetch has not succeeded. Check `last_error` and `last_successful_update` before changing the interval.
 
 ## Development checks
 
 On Linux or macOS, install both development requirement files and run `pytest -q` and `ruff check custom_components tests`. `requirements_ha_test.txt` installs the Home Assistant integration test environment. GitHub Actions also runs hassfest and HACS validation.
 
-After installing this first version, verify the username setup flow, each sensor's state and attributes, the four independent options intervals, and the official-site fallback by temporarily simulating an API failure in a test environment. No live Home Assistant installation or restart is performed by the project checks.
+After an update, check setup, preserved entity IDs, source freshness, all five intervals, optional-field failures, fallback counts and quota backoff in a test environment. No live HA installation or restart is performed by repository changes.

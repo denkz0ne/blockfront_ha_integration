@@ -55,6 +55,13 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if self._name == "status":
                 service_data = dict(previous.get("value", {}))
                 service_data["status"] = "unavailable"
+                service_data["api_polling_status"] = (
+                    "rate_limited" if err.status_code == 429 else "unavailable"
+                )
+                service_data["api_last_error"] = str(err)
+                service_data["api_last_attempt"] = attempted_at
+                service_data["api_rate_limit_remaining"] = None
+                service_data["api_retry_after"] = err.retry_after
                 previous["value"] = service_data
             elif self._name == "online":
                 cloud_data = dict(previous.get("value", {}))
@@ -92,7 +99,7 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "updated_at": attempted_at,
             "last_successful_update": attempted_at,
             "last_attempt": attempted_at,
-            "stale": False,
+            "stale": value.get("source_stale", False),
             "last_error": None,
         }
 
@@ -111,7 +118,7 @@ type BlockFrontConfigEntry = ConfigEntry[BlockFrontRuntimeData]
 def create_runtime(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> BlockFrontRuntimeData:
-    """Build an API client and four independently scheduled coordinators."""
+    """Build an API client and independently scheduled data groups."""
     api = BlockFrontApi(async_get_clientsession(hass))
     options = dict(entry.options)
 
@@ -119,12 +126,19 @@ def create_runtime(
         return await api.async_get_player(entry.data["player_uuid"])
 
     async def fetch_matches() -> dict[str, Any]:
-        return {"matches": await api.async_get_matches(entry.data["player_uuid"])}
+        return await api.async_get_match_data(entry.data["player_uuid"])
 
     async def fetch_status() -> dict[str, Any]:
         return parse_service_status(await api.async_get_status())
 
+    async def fetch_analytics() -> dict[str, Any]:
+        return await api.async_get_analytics(entry.data["player_uuid"])
+
     coordinators = {
+        "analytics": BlockFrontCoordinator(
+            hass, entry, "analytics", get_update_interval(options, "analytics"),
+            fetch_analytics, {"value": None},
+        ),
         "profile": BlockFrontCoordinator(
             hass,
             entry,
