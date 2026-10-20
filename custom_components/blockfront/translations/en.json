@@ -28,7 +28,10 @@
           "matches_interval": "Recent matches interval (seconds)",
           "online_interval": "Online players interval (seconds)",
           "status_interval": "Service status interval (seconds)",
-          "analytics_interval": "Recorded match analytics interval (seconds)"
+          "analytics_interval": "Recorded match analytics interval (seconds)",
+          "history_interval": "Personal history and ranks interval (seconds)",
+          "archive_interval": "Class XP and inventory archive interval (seconds)",
+          "global_interval": "Maps, trends, population and leaderboards interval (seconds)"
         }
       }
     }
@@ -88,7 +91,18 @@
       "latest_match_duration": {"name": "Latest match duration"},
       "latest_match_end": {"name": "Latest match end"},
       "api_polling_status": {"name": "Statistics API polling status"},
-      "api_requests_remaining": {"name": "Statistics API requests remaining"}
+      "api_requests_remaining": {"name": "Statistics API requests remaining"},
+      "inventory_items": {"name": "Saved inventory items"},
+      "profile_history": {"name": "Recorded profile history"},
+      "competitive_rank_history": {"name": "Recorded competitive rank"},
+      "season_score": {"name": "Current season score"},
+      "map_statistics": {"name": "Maps with statistics"},
+      "population_history": {"name": "Online history readings"},
+      "recorded_game_trends": {"name": "Recorded match trend days"},
+      "player_leaderboard": {"name": "Player leaderboard entries"},
+      "clan_leaderboard": {"name": "Clan leaderboard entries"},
+      "competitive_leaderboard": {"name": "Competitive leaderboard entries"},
+      "featured_map": {"name": "Most played map details"}
     },
     "binary_sensor": {
       "bootcamp": {"name": "Bootcamp"}

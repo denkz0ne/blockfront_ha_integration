@@ -115,9 +115,7 @@ class BlockFrontRuntimeData:
 type BlockFrontConfigEntry = ConfigEntry[BlockFrontRuntimeData]
 
 
-def create_runtime(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> BlockFrontRuntimeData:
+def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntimeData:
     """Build an API client and independently scheduled data groups."""
     api = BlockFrontApi(async_get_clientsession(hass))
     options = dict(entry.options)
@@ -134,10 +132,66 @@ def create_runtime(
     async def fetch_analytics() -> dict[str, Any]:
         return await api.async_get_analytics(entry.data["player_uuid"])
 
-    coordinators = {
+    async def fetch_history() -> dict[str, Any]:
+        profile_data = (
+            (coordinators.get("profile").data or {}).get("value", {})
+            if "profile" in coordinators
+            else {}
+        )
+        return await api.async_get_player_history(
+            entry.data["player_uuid"],
+            clan_uuid=profile_data.get("clan_uuid") if isinstance(profile_data, dict) else None,
+            clan_name=profile_data.get("clan") if isinstance(profile_data, dict) else None,
+        )
+
+    async def fetch_archive() -> dict[str, Any]:
+        return await api.async_get_archive_data(entry.data["player_uuid"])
+
+    async def fetch_global() -> dict[str, Any]:
+        analytics_data = (
+            (coordinators.get("analytics").data or {}).get("value", {})
+            if "analytics" in coordinators
+            else {}
+        )
+        featured_map = (
+            analytics_data.get("most_played_map") if isinstance(analytics_data, dict) else None
+        )
+        return await api.async_get_global_data(
+            featured_map=featured_map if isinstance(featured_map, str) and featured_map else None,
+        )
+
+    coordinators: dict[str, BlockFrontCoordinator] = {
         "analytics": BlockFrontCoordinator(
-            hass, entry, "analytics", get_update_interval(options, "analytics"),
-            fetch_analytics, {"value": None},
+            hass,
+            entry,
+            "analytics",
+            get_update_interval(options, "analytics"),
+            fetch_analytics,
+            {"value": None},
+        ),
+        "history": BlockFrontCoordinator(
+            hass,
+            entry,
+            "history",
+            get_update_interval(options, "history"),
+            fetch_history,
+            {"value": None},
+        ),
+        "archive": BlockFrontCoordinator(
+            hass,
+            entry,
+            "archive",
+            get_update_interval(options, "archive"),
+            fetch_archive,
+            {"value": None},
+        ),
+        "global": BlockFrontCoordinator(
+            hass,
+            entry,
+            "global",
+            get_update_interval(options, "global"),
+            fetch_global,
+            {"value": None},
         ),
         "profile": BlockFrontCoordinator(
             hass,

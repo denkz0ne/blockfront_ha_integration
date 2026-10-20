@@ -1,48 +1,27 @@
-# Blocklytics public API migration — 19 October 2026
+# Blocklytics API migration and expanded data — October 2026
 
 ## Scope
 
-Move to the public `/v1` contract without changing config entry version, player UUID, entity unique IDs, units or local badge paths. The manifest is prepared as 0.3.0; this does not mean a release is published or installed.
+The integration uses the production `/v1` API as its main source and keeps existing config-entry data, sensor unique IDs, units, and local military/skill-rank images. The expanded inventory of all documented routes, preview-only findings, source timestamps, cache behavior, and limits is in [the API inventory](blocklytics-api-inventory-2026-10.md).
 
-Primary base: `https://api.blocklytics.naknu.li/v1/`. Blocklytics is a community project using observations from the official BlockFront API. Public reads need no key and never force an upstream refresh.
+## Added data groups
 
-| Purpose | Endpoint | Behavior |
-| --- | --- | --- |
-| Setup | `players/search?q=NAME` | Select only a case-insensitive exact username. |
-| Profile | `players/{uuid}` | Normalize nested camelCase values into existing local keys; durations stay seconds. |
-| Recent matches | `players/{uuid}/matches?limit=20` | Keep end, duration, environment, estimated start and pagination metadata. |
-| Total online | `online` | Keep capture timestamp and freshness. |
-| Health | `status` | Evaluate active datasets and player-data availability, excluding retired legacy feeds. |
-| Recorded summary | `players/{uuid}/analytics` | Tracked sample size. |
-| Map performance | `players/{uuid}/analytics/maps` | Most-played map and map table. |
-| Mode performance | `players/{uuid}/analytics/modes` | Sample wins/losses, win percentage, score average and mode table. |
+- **Personal history:** 365-day lifetime snapshots, competitive-rank observations, and season score/rank history.
+- **Matches:** the latest page of up to 100 recorded matches. Pagination metadata shows whether older pages exist.
+- **Global game data:** seven-day online history, 90-day recorded-match/player trends, all map statistics, first pages of the player/clan/competitive leaderboards, and the detail for the player's most-played map.
+- **Preview archive:** class XP and saved inventory, with original capture timestamps. These values are visibly separated from profile freshness because the preview can serve old stored data.
+- **Efficiency:** production responses are conditionally fetched with ETags and a `304` reuses the last body. Quota diagnostics still use the actual response headers.
 
-New responses use `{data, meta}`. `meta.updatedAt` is source capture time, distinct from the HA fetch time; `meta.stale` is preserved. Failed refreshes keep previous values marked stale. Unknown fields never become zero.
+Unavailable values remain unknown. A successful poll of a stored snapshot is not treated as a new game observation. Public reads do not trigger a BlockFront refresh.
 
-## Compatibility and limitations
+## Refresh defaults and limits
 
-- Vuis `cloud_data` remains the live per-mode source because public v1 has no mode breakdown. Retained mode counts have `cloud_stale: true` when Vuis fails, independently of the public total.
-- A public online-total failure falls back through Vuis total, official `https://api.blockfrontmc.com/api/v2/?type=player_count`, then the existing official website parser.
-- Karma and bootcamp use a narrow optional legacy profile request. If it fails, these values are unknown with a supplement error; public profile statistics still update. This temporary compatibility API is not a stable public contract.
-- Class XP and trophies remain unknown: the source currently does not publish them. Existing entities are retained for dashboards.
-- Competitive rating band is an inferred range, not an exact rating.
-- Recorded analytics are a sample, not lifetime totals. Tracked totals, pagination totals and lifetime matches may differ. Analytic counters use measurement statistics because the sample may shrink or be recomputed.
-- The newest page of 20 matches is fetched, without automatic full-history pagination. Estimated match start is end minus duration, not a verified video recording timestamp.
-- Most-played map exposes `maps` and `modes` table attributes, with decimals rounded to two places. Ambiguous percentile fields are intentionally omitted.
-- API history, global leaderboards/maps and trends are not polled in this migration. Existing HA recorder history continues; remote history is not imported into recorder.
+Profile/matches/status stay at 15 minutes, online at 5 minutes, and recorded analytics at 30 minutes. History and global data default to 60 minutes; preview archive data defaults to 6 hours. Each group has a separate options-flow interval and minimum. Detailed budgets and observed source capture times are in the [inventory](blocklytics-api-inventory-2026-10.md).
 
-## Polling
+The newest 100 match records and leaderboard page are fetched; the integration does not crawl every historical page. The API's top-100 season ranking and sampled analytics are not lifetime standings or a complete career log. Clan lookup/history only runs when a clan is present on the profile.
 
-Existing intervals remain valid: profile/matches/status default to 15 minutes, online to 5 minutes. Analytics adds a 30-minute default with a 15-minute minimum. Profile uses one public call plus an optional legacy call; analytics uses three public calls per refresh.
+## Deployment boundary
 
-Rate-limit headers describe a shared-IP token bucket. Capacity is not requests per minute. Remaining requests are the last observed count, not an estimate of the current balance. Reset is a delta in seconds, converted to a UTC reset timestamp. HTTP 429 pauses subsequent public calls by this client until Retry-After expires (numeric seconds or HTTP date); fallback is reset or 60 seconds. Other HA entries and apps behind the same public IP share the quota.
+These changes update repository code and documentation. They do not restart Home Assistant, change the live config entry, or publish a release. GitHub currently has no open issues for this repository; the resulting branch is prepared for review.
 
-Quota entities update after data coordinator refreshes without extra HTTP requests. Vuis cloud polling diagnostics remain separate.
-
-## Verification and deployment boundary
-
-Public search, status, analytics and matches were inspected live before implementation. Static verification uses source compilation, Ruff and whitespace review. Existing API/config-flow fixtures are adapted to the new contract; no new tests are added and the test suite is not executed in this task.
-
-Live HA setup, reload/unload, dashboard rendering, throttling and outage recovery require runtime verification. No installed HA files, restart or release publication are part of this code change.
-
-References: [OpenAPI schema](https://api.blocklytics.naknu.li/openapi.json), [API documentation](https://api.blocklytics.naknu.li/docs). Direct official upstream player access needs an author-issued API key; this integration does not require or store one.
+References: [OpenAPI schema](https://api.blocklytics.naknu.li/openapi.json), [complete API guide](https://api.blocklytics.naknu.li/llms-full.txt), [preview site](https://preview.blocklytics.naknu.li/).

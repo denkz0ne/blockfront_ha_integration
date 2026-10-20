@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from time import monotonic
 from typing import Any
+from urllib.parse import quote, urlencode
 from uuid import UUID
 
 import aiohttp
@@ -62,6 +63,7 @@ class BlockFrontApi:
         self.public_last_error: str | None = None
         self._public_retry_until = 0.0
         self._public_reset_at: str | None = None
+        self._etag_cache: dict[str, tuple[str, dict[str, Any]]] = {}
 
     async def _get_json(
         self,
@@ -73,6 +75,7 @@ class BlockFrontApi:
     ) -> dict[str, Any]:
         url = f"{base_url}{path}"
         public = base_url == API_BASE_URL
+        cache_key = f"{url}?{urlencode(sorted((params or {}).items()))}"
         if public and self._public_retry_until > monotonic():
             raise ApiError(
                 "Blocklytics polling paused until the request quota recovers",
@@ -83,7 +86,14 @@ class BlockFrontApi:
         if public:
             self.public_last_attempt = datetime.now(UTC).isoformat()
         try:
-            async with self._session.get(url, params=params, timeout=self._timeout) as response:
+            request_headers = {}
+            cached = self._etag_cache.get(cache_key)
+            if cached is not None:
+                request_headers["If-None-Match"] = cached[0]
+            request_options: dict[str, Any] = {"params": params, "timeout": self._timeout}
+            if request_headers:
+                request_options["headers"] = request_headers
+            async with self._session.get(url, **request_options) as response:
                 headers = getattr(response, "headers", {})
                 rate_limit = _rate_limit_headers(headers)
                 retry_after = headers.get("Retry-After")
@@ -94,7 +104,8 @@ class BlockFrontApi:
                     reset = _retry_seconds(headers.get("RateLimit-Reset"))
                     self._public_reset_at = (
                         (datetime.now(UTC) + timedelta(seconds=reset)).isoformat()
-                        if reset is not None else None
+                        if reset is not None
+                        else None
                     )
                     if response.status == 429:
                         delay = _retry_seconds(retry_after)
@@ -102,6 +113,13 @@ class BlockFrontApi:
                         self._public_retry_until = monotonic() + max(delay, 1)
                     elif rate_limit.get("RateLimit-Remaining") == "0" and reset is not None:
                         self._public_retry_until = monotonic() + max(reset, 1)
+                if response.status == 304:
+                    if cached is None:
+                        raise ApiError(f"{service_name} returned 304 without a cached response")
+                    if public:
+                        self.public_last_success = datetime.now(UTC).isoformat()
+                        self.public_last_error = None
+                    return cached[1]
                 if response.status == 404:
                     raise ApiError(
                         "Player or endpoint was not found",
@@ -124,6 +142,9 @@ class BlockFrontApi:
                     raise ApiError(f"{service_name} returned an invalid response")
                 if public:
                     _validate_public_response(path, payload)
+                etag = headers.get("ETag")
+                if isinstance(etag, str) and etag:
+                    self._etag_cache[cache_key] = (etag, payload)
         except ApiError as err:
             if public:
                 self.public_last_error = str(err)
@@ -144,8 +165,10 @@ class BlockFrontApi:
         """Return the last observed shared-IP token bucket, not a fixed RPM quota."""
         return {
             "api_polling_status": (
-                "rate_limited" if self._public_retry_until > monotonic()
-                else "unavailable" if self.public_last_error or not self.public_last_success
+                "rate_limited"
+                if self._public_retry_until > monotonic()
+                else "unavailable"
+                if self.public_last_error or not self.public_last_success
                 else "available"
             ),
             "api_rate_limit_limit": _header_number(self.public_rate_limit, "RateLimit-Limit"),
@@ -175,8 +198,7 @@ class BlockFrontApi:
             if isinstance(err, TimeoutError):
                 raise ApiError("Official BlockFront website request timed out") from err
             raise ApiError(
-                "Official BlockFront website request failed: "
-                f"{err.__class__.__name__}"
+                f"Official BlockFront website request failed: {err.__class__.__name__}"
             ) from err
 
     async def async_resolve_player(self, username: str) -> str:
@@ -200,26 +222,32 @@ class BlockFrontApi:
         stats = data.get("stats")
         if not isinstance(stats, dict):
             raise ApiError("Blocklytics returned invalid lifetime statistics")
-        profile = {
-            local: stats.get(remote) for local, remote in PROFILE_STAT_FIELDS.items()
-        }
+        profile = {local: stats.get(remote) for local, remote in PROFILE_STAT_FIELDS.items()}
         clan = data.get("clan")
-        profile.update({
-            "uuid": data.get("uuid"), "username": data.get("username"),
-            "exp": data.get("exp"), "rank": data.get("militaryRank"),
-            "prestige": data.get("prestige"), "skill_rank": data.get("competitiveRank"),
-            "clan": (clan.get("name") or clan.get("tag")) if isinstance(clan, dict) else None,
-            "source": data.get("source"), "source_timestamp": meta.get("updatedAt"),
-            "source_stale": meta.get("stale", True),
-            "unavailable_fields": data.get("unavailableFields", []),
-            "match_karma": None, "bootcamp": None, "class_exp": None, "trophies": None,
-        })
+        profile.update(
+            {
+                "uuid": data.get("uuid"),
+                "username": data.get("username"),
+                "exp": data.get("exp"),
+                "rank": data.get("militaryRank"),
+                "prestige": data.get("prestige"),
+                "skill_rank": data.get("competitiveRank"),
+                "clan": (clan.get("name") or clan.get("tag")) if isinstance(clan, dict) else None,
+                "clan_uuid": clan.get("uuid") if isinstance(clan, dict) else None,
+                "source": data.get("source"),
+                "source_timestamp": meta.get("updatedAt"),
+                "source_stale": meta.get("stale", True),
+                "unavailable_fields": data.get("unavailableFields", []),
+                "match_karma": None,
+                "bootcamp": None,
+                "class_exp": None,
+                "trophies": None,
+            }
+        )
         # These two existing entities are not exposed by the public v1 contract.
         # The compatibility request is optional and cannot take the profile down.
         try:
-            legacy = await self._get_json(
-                f"players/{player_uuid}", base_url=LEGACY_API_BASE_URL
-            )
+            legacy = await self._get_json(f"players/{player_uuid}", base_url=LEGACY_API_BASE_URL)
         except ApiError as err:
             profile["supplement_error"] = str(err)
         else:
@@ -231,10 +259,10 @@ class BlockFrontApi:
         return profile
 
     async def async_get_match_data(self, player_uuid: str) -> dict[str, Any]:
-        """Fetch a bounded page and preserve pagination and source metadata."""
-        data, meta = unpack_response(await self._get_json(
-            f"players/{player_uuid}/matches", params={"limit": "20"}
-        ), list)
+        """Fetch the largest documented recent-match page and its metadata."""
+        data, meta = unpack_response(
+            await self._get_json(f"players/{player_uuid}/matches", params={"limit": "100"}), list
+        )
         if any(not isinstance(item, dict) for item in data):
             raise ApiError("Blocklytics returned an invalid matches list")
         matches = []
@@ -251,9 +279,13 @@ class BlockFrontApi:
                 except ValueError:
                     pass
             matches.append(match)
-        return {"matches": matches, "pagination": meta.get("pagination"),
-                "source_timestamp": meta.get("updatedAt"),
-                "source_stale": meta.get("stale", True), "source": "blocklytics_public_api"}
+        return {
+            "matches": matches,
+            "pagination": meta.get("pagination"),
+            "source_timestamp": meta.get("updatedAt"),
+            "source_stale": meta.get("stale", True),
+            "source": "blocklytics_public_api",
+        }
 
     async def async_get_matches(self, player_uuid: str) -> list[dict[str, Any]]:
         """Return the most recent match page for existing client consumers."""
@@ -262,8 +294,11 @@ class BlockFrontApi:
     async def async_get_overview(self) -> dict[str, Any]:
         """Read the new online endpoint through the existing online abstraction."""
         data, meta = unpack_response(await self._get_json("online"), dict)
-        return {"online": data, "generatedAt": data.get("capturedAt"),
-                "source_stale": meta.get("stale", True)}
+        return {
+            "online": data,
+            "generatedAt": data.get("capturedAt"),
+            "source_stale": meta.get("stale", True),
+        }
 
     async def async_get_analytics(self, player_uuid: str) -> dict[str, Any]:
         """Fetch recorded-match analytics with map and mode breakdowns."""
@@ -278,31 +313,207 @@ class BlockFrontApi:
         for key in ("games", "wins", "losses", "score"):
             values = [row.get(key) for row in modes]
             totals[key] = (
-                sum(values) if values and all(
+                sum(values)
+                if values
+                and all(
                     isinstance(value, int) and not isinstance(value, bool) and value >= 0
                     for value in values
-                ) else None
+                )
+                else None
             )
         games = totals["games"]
         most_played = max(maps, key=lambda row: _valid_count(row.get("games")), default={})
         return {
             "tracked_matches": summary.get("trackedMatches"),
-            "recorded_wins": totals["wins"], "recorded_losses": totals["losses"],
+            "recorded_wins": totals["wins"],
+            "recorded_losses": totals["losses"],
             "recorded_win_rate": (
                 round(totals["wins"] / games * 100, 2)
-                if games and totals["wins"] is not None else None
+                if games and totals["wins"] is not None
+                else None
             ),
             "average_match_score": (
-                round(totals["score"] / games, 2)
-                if games and totals["score"] is not None else None
+                round(totals["score"] / games, 2) if games and totals["score"] is not None else None
             ),
-            "most_played_map": most_played.get("name"),
-            "maps": maps, "modes": modes, "sample_matches": games,
+            "most_played_map": most_played.get("mapName") or most_played.get("map"),
+            "most_played_map_key": most_played.get("map"),
+            "maps": maps,
+            "modes": modes,
+            "sample_matches": games,
             "computed_at": summary.get("computedAt"),
             "source_timestamp": meta.get("updatedAt"),
             "source_stale": any(m.get("stale", True) for m in (meta, map_meta, mode_meta)),
             "source": "blocklytics_public_api",
         }
+
+    async def async_get_player_history(
+        self, player_uuid: str, *, clan_uuid: str | None = None, clan_name: str | None = None
+    ) -> dict[str, Any]:
+        """Fetch the player's cumulative, competitive-rank and season-score histories."""
+        result: dict[str, Any] = {}
+        requests = {
+            "lifetime": (f"players/{player_uuid}/history", {"days": "365"}),
+            "competitive": (f"players/{player_uuid}/competitive-history", None),
+            "season": (f"players/{player_uuid}/score-history", {"days": "365"}),
+        }
+        for key, (path, params) in requests.items():
+            try:
+                data, meta = unpack_response(await self._get_json(path, params=params), dict)
+                points = data.get("points")
+                if not isinstance(points, list) or any(
+                    not isinstance(point, dict) for point in points
+                ):
+                    raise ApiError(f"Blocklytics returned invalid {key} history")
+                result[key] = {
+                    "points": points,
+                    "observed_until": data.get("observedUntil"),
+                    "days": data.get("days"),
+                    "source_timestamp": meta.get("updatedAt"),
+                    "source_stale": meta.get("stale", True),
+                    "error": None,
+                }
+            except ApiError as err:
+                result[key] = {
+                    "points": None,
+                    "source_timestamp": None,
+                    "source_stale": True,
+                    "error": str(err),
+                }
+
+        if clan_uuid or clan_name:
+            resolved_clan = clan_uuid
+            if not resolved_clan and clan_name:
+                try:
+                    data, _ = unpack_response(
+                        await self._get_json("clans", params={"q": clan_name, "limit": "20"}), list
+                    )
+                    exact = next(
+                        (
+                            item
+                            for item in data
+                            if isinstance(item, dict)
+                            and any(
+                                isinstance(candidate, str)
+                                and candidate.casefold() == clan_name.casefold()
+                                for candidate in (item.get("name"), item.get("tag"))
+                            )
+                        ),
+                        None,
+                    )
+                    resolved_clan = exact.get("uuid") if exact else None
+                except (ApiError, AttributeError):
+                    result["clan"] = {"error": "Clan could not be resolved"}
+            if resolved_clan:
+                clan_data: dict[str, Any] = {}
+                try:
+                    detail, meta = unpack_response(
+                        await self._get_json(f"clans/{resolved_clan}"), dict
+                    )
+                    clan_data["detail"] = detail
+                    clan_data["source_timestamp"] = meta.get("updatedAt")
+                    clan_data["source_stale"] = meta.get("stale", True)
+                except ApiError as err:
+                    clan_data["detail_error"] = str(err)
+                try:
+                    score, meta = unpack_response(
+                        await self._get_json(
+                            f"clans/{resolved_clan}/score-history", params={"days": "365"}
+                        ),
+                        dict,
+                    )
+                    clan_data["score_history"] = score.get("points", [])
+                    clan_data["score_history_timestamp"] = meta.get("updatedAt")
+                except ApiError as err:
+                    clan_data["score_history_error"] = str(err)
+                result["clan"] = clan_data
+
+        if not any(
+            isinstance(value, dict)
+            and value.get("error") is None
+            and isinstance(value.get("points"), list)
+            for value in result.values()
+        ):
+            raise ApiError("Blocklytics player history is unavailable")
+        result["source"] = "blocklytics_public_api"
+        return result
+
+    async def async_get_archive_data(self, player_uuid: str) -> dict[str, Any]:
+        """Read preview-only class XP and saved inventory, preserving capture times."""
+        result: dict[str, Any] = {}
+        for key, suffix in (("classes", "classes"), ("inventory", "inventory")):
+            try:
+                payload = await self._get_json(
+                    f"players/{player_uuid}/{suffix}",
+                    base_url=LEGACY_API_BASE_URL,
+                    service_name="Blocklytics preview API",
+                )
+                items = payload.get("items")
+                if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+                    raise ApiError(f"Blocklytics preview returned invalid {key} data")
+                result[key] = {
+                    "items": items,
+                    "captured_at": payload.get("captured_at"),
+                    "source": payload.get("source", "blocklytics_preview"),
+                    "error": None,
+                }
+            except ApiError as err:
+                result[key] = {
+                    "items": None,
+                    "captured_at": None,
+                    "source": "blocklytics_preview",
+                    "error": str(err),
+                }
+        if all(result[key]["error"] for key in ("classes", "inventory")):
+            raise ApiError("Blocklytics preview archive data is unavailable")
+        return result
+
+    async def async_get_global_data(self, *, featured_map: str | None = None) -> dict[str, Any]:
+        """Fetch public game-wide trends, maps and leaderboards in bounded pages."""
+        endpoints: dict[str, tuple[str, dict[str, str] | None, type]] = {
+            "online_history": ("online/history", {"hours": "168"}, dict),
+            "trends": ("trends", {"days": "90"}, dict),
+            "maps": ("maps", None, list),
+            "players": ("leaderboards/players", {"limit": "100"}, list),
+            "clans": ("leaderboards/clans", {"limit": "100"}, list),
+            "competitive": ("leaderboards/competitive", {"limit": "100"}, list),
+        }
+        result: dict[str, Any] = {"source": "blocklytics_public_api", "datasets": {}}
+        for key, (path, params, expected) in endpoints.items():
+            try:
+                data, meta = unpack_response(await self._get_json(path, params=params), expected)
+                if isinstance(data, list) and any(not isinstance(item, dict) for item in data):
+                    raise ApiError(f"Blocklytics returned invalid {key} data")
+                result["datasets"][key] = {
+                    "data": data,
+                    "source_timestamp": meta.get("updatedAt"),
+                    "source_stale": meta.get("stale", True),
+                    "pagination": meta.get("pagination"),
+                    "error": None,
+                }
+            except ApiError as err:
+                result["datasets"][key] = {
+                    "data": None,
+                    "source_timestamp": None,
+                    "source_stale": True,
+                    "error": str(err),
+                }
+        if all(item.get("error") for item in result["datasets"].values()):
+            raise ApiError("Blocklytics global statistics are unavailable")
+        result["featured_map"] = None
+        if featured_map:
+            try:
+                map_path = quote(featured_map, safe="")
+                data, meta = unpack_response(await self._get_json(f"maps/{map_path}"), dict)
+                result["featured_map"] = {
+                    "data": data,
+                    "source_timestamp": meta.get("updatedAt"),
+                    "source_stale": meta.get("stale", True),
+                    "error": None,
+                }
+            except ApiError as err:
+                result["featured_map"] = {"data": None, "error": str(err), "source_stale": True}
+        result["source_stale"] = any(item["source_stale"] for item in result["datasets"].values())
+        return result
 
     async def async_get_cloud_data(self) -> dict[str, Any]:
         """Fetch live cloud player totals and per-mode counts directly."""
@@ -404,8 +615,12 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
         cloud = parse_cloud_data(await api.async_get_cloud_data())
     except ApiError as err:
         cloud_error = err
-        cloud = {"game_player_count": None, "scoreboard_reset_time": None,
-                 "rate_limit": err.rate_limit, "retry_after": err.retry_after}
+        cloud = {
+            "game_player_count": None,
+            "scoreboard_reset_time": None,
+            "rate_limit": err.rate_limit,
+            "retry_after": err.retry_after,
+        }
     else:
         if online is None:
             online = cloud["online_count"]
@@ -414,7 +629,9 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
     if online is None:
         try:
             official = await api._get_json(
-                "", params={"type": "player_count"}, base_url=OFFICIAL_API_BASE_URL,
+                "",
+                params={"type": "player_count"},
+                base_url=OFFICIAL_API_BASE_URL,
                 service_name="Official BlockFront API",
             )
             online = parse_online_count({"online": official})
@@ -431,11 +648,19 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
                     rate_limit=cloud_error.rate_limit if cloud_error else None,
                 ) from err
     return {
-        **cloud, "online_count": online, "source": source,
-        "source_timestamp": source_timestamp, "source_stale": source_stale,
+        **cloud,
+        "online_count": online,
+        "source": source,
+        "source_timestamp": source_timestamp,
+        "source_stale": source_stale,
         "public_api_error": public_error,
-        "polling_status": ("available" if cloud_error is None else
-                           "rate_limited" if cloud_error.status_code == 429 else "unavailable"),
+        "polling_status": (
+            "available"
+            if cloud_error is None
+            else "rate_limited"
+            if cloud_error.status_code == 429
+            else "unavailable"
+        ),
         "api_error": str(cloud_error) if cloud_error else None,
     }
 
@@ -485,11 +710,15 @@ def parse_service_status(payload: object) -> dict[str, Any]:
     affected = [name for name, item in datasets.items() if item.get("stale") is not False]
     healthy = data.get("status") == "ok" and data.get("playerData") is True
     return {
-        "status": "online" if healthy and not affected and meta.get("stale") is False
+        "status": "online"
+        if healthy and not affected and meta.get("stale") is False
         else "degraded",
-        "stale_feed_count": len(affected), "stale_datasets": affected,
-        "datasets": datasets, "player_data_available": data.get("playerData"),
-        "version": data.get("apiVersion"), "server_version": data.get("serverVersion"),
+        "stale_feed_count": len(affected),
+        "stale_datasets": affected,
+        "datasets": datasets,
+        "player_data_available": data.get("playerData"),
+        "version": data.get("apiVersion"),
+        "server_version": data.get("serverVersion"),
         "uptime_seconds": None,
         "upstream_error": "; ".join(affected) or None,
         "source_timestamp": meta.get("updatedAt"),
@@ -512,7 +741,14 @@ def unpack_response(payload: object, expected_type: type) -> tuple[Any, dict[str
 
 def _validate_public_response(path: str, payload: dict[str, Any]) -> None:
     """Validate endpoint structure before recording a successful public request."""
-    collection = path == "players/search" or path.endswith(("/matches", "/maps", "/modes"))
+    collection = path in {
+        "players/search",
+        "maps",
+        "leaderboards/players",
+        "leaderboards/clans",
+        "leaderboards/competitive",
+        "clans",
+    } or path.endswith(("/matches", "/maps", "/modes"))
     data, _ = unpack_response(payload, list if collection else dict)
     if collection and any(not isinstance(item, dict) for item in data):
         raise ApiError("Blocklytics returned invalid collection entries")
@@ -560,17 +796,34 @@ def _valid_count(value: object) -> int:
 
 
 PROFILE_STAT_FIELDS = {
-    "total_games": "totalGames", "time_played": "timePlayedSeconds",
-    "kills": "kills", "deaths": "deaths", "assists": "assists", "kd": "kd",
-    "head_shots": "headshots", "hs_kr": "headshotsPerKill", "back_stabs": "backstabs",
-    "no_scopes": "noScopes", "first_bloods": "firstBloods", "fire_kills": "fireKills",
-    "heal_assists": "healAssists", "captures": "captures", "objective_score": "objectiveScore",
-    "bot_kills": "botKills", "infected_kills": "infectedKills",
-    "infected_rounds_won": "infectedRoundsWon", "infected_matches_won": "infectedMatchesWon",
-    "vehicle_kills": "vehicleKills", "highest_kill_streak": "highestKillStreak",
+    "total_games": "totalGames",
+    "time_played": "timePlayedSeconds",
+    "kills": "kills",
+    "deaths": "deaths",
+    "assists": "assists",
+    "kd": "kd",
+    "head_shots": "headshots",
+    "hs_kr": "headshotsPerKill",
+    "back_stabs": "backstabs",
+    "no_scopes": "noScopes",
+    "first_bloods": "firstBloods",
+    "fire_kills": "fireKills",
+    "heal_assists": "healAssists",
+    "captures": "captures",
+    "objective_score": "objectiveScore",
+    "bot_kills": "botKills",
+    "infected_kills": "infectedKills",
+    "infected_rounds_won": "infectedRoundsWon",
+    "infected_matches_won": "infectedMatchesWon",
+    "vehicle_kills": "vehicleKills",
+    "highest_kill_streak": "highestKillStreak",
     "highest_death_streak": "highestDeathStreak",
 }
 MATCH_FIELDS = {
-    "matchId": "match_id", "mode": "game", "endedAt": "ended_at",
-    "durationSeconds": "duration_seconds", "winnerTeam": "winner_team", "team": "player_team",
+    "matchId": "match_id",
+    "mode": "game",
+    "endedAt": "ended_at",
+    "durationSeconds": "duration_seconds",
+    "winnerTeam": "winner_team",
+    "team": "player_team",
 }
