@@ -31,9 +31,20 @@ async def test_config_flow_resolves_username_and_creates_entry(hass) -> None:
         patch("custom_components.blockfront.coordinator.BlockFrontApi") as coordinator_api,
     ):
         api_class.return_value.async_resolve_player = AsyncMock(return_value=PLAYER_UUID)
+        coordinator_api.return_value.polling_data.return_value = {
+            "api_polling_status": "available", "api_rate_limit_remaining": None,
+        }
         coordinator_api.return_value.async_get_player = AsyncMock(return_value={})
-        coordinator_api.return_value.async_get_matches = AsyncMock(return_value=[])
-        coordinator_api.return_value.async_get_status = AsyncMock(return_value={})
+        coordinator_api.return_value.async_get_match_data = AsyncMock(return_value={"matches": []})
+        coordinator_api.return_value.async_get_analytics = AsyncMock(return_value={})
+        coordinator_api.return_value.async_get_cloud_data = AsyncMock(
+            return_value={"players_online": 0, "game_player_count": {}}
+        )
+        coordinator_api.return_value.async_get_status = AsyncMock(return_value={
+            "data": {"status": "ok", "playerData": True,
+                     "datasets": {"online": {"stale": False}}},
+            "meta": {"stale": False},
+        })
         coordinator_api.return_value.async_get_overview = AsyncMock(
             return_value={"online": {"playersOnline": 0}}
         )

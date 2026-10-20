@@ -27,7 +27,11 @@
           "profile_interval": "Player statistics interval (seconds)",
           "matches_interval": "Recent matches interval (seconds)",
           "online_interval": "Online players interval (seconds)",
-          "status_interval": "Service status interval (seconds)"
+          "status_interval": "Service status interval (seconds)",
+          "analytics_interval": "Recorded match analytics interval (seconds)",
+          "history_interval": "Personal history and ranks interval (seconds)",
+          "archive_interval": "Class XP and inventory archive interval (seconds)",
+          "global_interval": "Maps, trends, population and leaderboards interval (seconds)"
         }
       }
     }
@@ -77,7 +81,28 @@
       "cloud_infected_players": {"name": "Infected players"},
       "cloud_trouble_town_players": {"name": "Trouble Town players"},
       "cloud_polling_status": {"name": "Cloud API polling status"},
-      "service_status": {"name": "Statistics service status"}
+      "service_status": {"name": "Statistics service status"},
+      "tracked_matches": {"name": "Tracked matches"},
+      "recorded_wins": {"name": "Recorded wins"},
+      "recorded_losses": {"name": "Recorded losses"},
+      "recorded_win_rate": {"name": "Recorded win rate"},
+      "average_match_score": {"name": "Average recorded match score"},
+      "most_played_map": {"name": "Most played map"},
+      "latest_match_duration": {"name": "Latest match duration"},
+      "latest_match_end": {"name": "Latest match end"},
+      "api_polling_status": {"name": "Statistics API polling status"},
+      "api_requests_remaining": {"name": "Statistics API requests remaining"},
+      "inventory_items": {"name": "Saved inventory items"},
+      "profile_history": {"name": "Recorded profile history"},
+      "competitive_rank_history": {"name": "Recorded competitive rank"},
+      "season_score": {"name": "Current season score"},
+      "map_statistics": {"name": "Maps with statistics"},
+      "population_history": {"name": "Online history readings"},
+      "recorded_game_trends": {"name": "Recorded match trend days"},
+      "player_leaderboard": {"name": "Player leaderboard entries"},
+      "clan_leaderboard": {"name": "Clan leaderboard entries"},
+      "competitive_leaderboard": {"name": "Competitive leaderboard entries"},
+      "featured_map": {"name": "Most played map details"}
     },
     "binary_sensor": {
       "bootcamp": {"name": "Bootcamp"}

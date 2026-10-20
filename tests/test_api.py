@@ -87,15 +87,18 @@ class FakeOnlineApi:
 async def test_resolve_player_returns_uuid() -> None:
     username = "denkz0ne"
     player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
-    session = FakeSession(FakeResponse(payload={"name": username, "uuid": player_uuid}))
+    session = FakeSession(FakeResponse(payload={
+        "data": [{"username": username, "uuid": player_uuid}],
+        "meta": {"stale": False},
+    }))
     assert await BlockFrontApi(session).async_resolve_player(username) == player_uuid
-    assert session.requests[0][0] == f"{API_BASE_URL}resolve"
-    assert session.requests[0][1]["params"] == {"name": username}
+    assert session.requests[0][0] == f"{API_BASE_URL}players/search"
+    assert session.requests[0][1]["params"] == {"q": username}
 
 
 @pytest.mark.asyncio
 async def test_resolve_player_missing_uuid_is_not_found() -> None:
-    api = BlockFrontApi(FakeSession(FakeResponse(payload={"name": "unknown"})))
+    api = BlockFrontApi(FakeSession(FakeResponse(payload={"data": [], "meta": {"stale": False}})))
     with pytest.raises(PlayerNotFound):
         await api.async_resolve_player("unknown")
 
@@ -110,19 +113,24 @@ async def test_api_timeout_is_reported_as_api_error() -> None:
 @pytest.mark.asyncio
 async def test_profile_accepts_optional_missing_values() -> None:
     player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
-    api = BlockFrontApi(FakeSession(FakeResponse(payload={"kills": 12, "deaths": None})))
+    api = BlockFrontApi(FakeSession(
+        FakeResponse(payload={"data": {"stats": {"kills": 12, "deaths": None}},
+                              "meta": {"stale": False}}),
+        FakeResponse(status=503),
+    ))
     profile = await api.async_get_player(player_uuid)
-    assert profile == {"kills": 12, "deaths": None}
+    assert profile["kills"] == 12
+    assert profile["deaths"] is None
 
 
 @pytest.mark.asyncio
 async def test_matches_endpoint_requires_list_and_allows_empty_list() -> None:
     player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
-    api = BlockFrontApi(FakeSession(FakeResponse(payload={"matches": []})))
+    api = BlockFrontApi(FakeSession(FakeResponse(payload={"data": [], "meta": {"stale": False}})))
     assert await api.async_get_matches(player_uuid) == []
 
-    api = BlockFrontApi(FakeSession(FakeResponse(payload={"matches": {}})))
-    with pytest.raises(ApiError, match="matches"):
+    api = BlockFrontApi(FakeSession(FakeResponse(payload={"data": {}, "meta": {"stale": False}})))
+    with pytest.raises(ApiError, match="envelope"):
         await api.async_get_matches(player_uuid)
 
 
@@ -184,12 +192,11 @@ async def test_online_data_reports_both_sources_failing() -> None:
 def test_service_status_degrades_when_feed_is_stale_or_failing() -> None:
     status = parse_service_status(
         {
-            "version": "1.2.3",
-            "uptimeS": 420,
-            "feeds": [
-                {"feed": "overview", "stale": False, "consecutiveFailures": 0},
-                {"feed": "matches", "stale": True, "consecutiveFailures": 3},
-            ],
+            "data": {
+                "status": "ok", "apiVersion": "1.2.3", "playerData": True,
+                "datasets": {"online": {"stale": False}, "analytics": {"stale": True}},
+            },
+            "meta": {"stale": False},
         }
     )
     assert status["status"] == "degraded"
@@ -198,5 +205,5 @@ def test_service_status_degrades_when_feed_is_stale_or_failing() -> None:
 
 
 def test_service_status_rejects_malformed_feeds() -> None:
-    with pytest.raises(ApiError, match="feeds"):
-        parse_service_status({"feeds": "bad"})
+    with pytest.raises(ApiError, match="datasets"):
+        parse_service_status({"data": {"datasets": "bad"}, "meta": {"stale": False}})
