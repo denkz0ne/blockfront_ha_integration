@@ -3,9 +3,10 @@
     "step": {
       "user": {
         "title": "Connect a BlockFront player",
-        "description": "Enter the BlockFront username whose public statistics you want to track.",
+        "description": "Enter the BlockFront username. Add a Blocklytics API key only if this use has been authorized.",
         "data": {
-          "username": "BlockFront username"
+          "username": "BlockFront username",
+          "blocklytics_api_key": "Blocklytics API key (if authorized)"
         }
       }
     },
@@ -21,9 +22,10 @@
   "options": {
     "step": {
       "init": {
-        "title": "Polling intervals",
-        "description": "Intervals are independent. Shorter intervals cannot make delayed upstream data fresher.",
+        "title": "API key and polling intervals",
+        "description": "Enter an API key only if Blocklytics has authorized this use. Leave it empty to keep the saved key. Intervals are independent.",
         "data": {
+          "blocklytics_api_key": "Blocklytics API key (if authorized)",
           "profile_interval": "Player statistics interval (seconds)",
           "matches_interval": "Recent matches interval (seconds)",
           "online_interval": "Online players interval (seconds)",

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import timedelta
+from typing import Any
 
 from homeassistant.const import Platform
 
@@ -11,6 +13,7 @@ PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR)
 
 CONF_USERNAME = "username"
 CONF_PLAYER_UUID = "player_uuid"
+CONF_BLOCKLYTICS_API_KEY = "blocklytics_api_key"
 
 OPTION_PROFILE_INTERVAL = "profile_interval"
 OPTION_MATCHES_INTERVAL = "matches_interval"
@@ -21,7 +24,8 @@ OPTION_HISTORY_INTERVAL = "history_interval"
 OPTION_ARCHIVE_INTERVAL = "archive_interval"
 OPTION_GLOBAL_INTERVAL = "global_interval"
 
-DEFAULT_OPTIONS = {
+DEFAULT_OPTIONS: dict[str, int | str] = {
+    CONF_BLOCKLYTICS_API_KEY: "",
     OPTION_ANALYTICS_INTERVAL: 1800,
     OPTION_HISTORY_INTERVAL: 3600,
     OPTION_ARCHIVE_INTERVAL: 21600,
@@ -56,7 +60,7 @@ UPDATE_INTERVALS = {
 }
 
 
-def get_update_interval(options: dict[str, int], key: str) -> timedelta:
+def get_update_interval(options: Mapping[str, Any], key: str) -> timedelta:
     """Return a validated independent update interval."""
     option_key = UPDATE_INTERVALS[key]
     default = DEFAULT_OPTIONS[option_key]

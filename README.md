@@ -2,7 +2,7 @@
 
 A small custom Home Assistant integration for BlockFront player statistics, match performance, game-wide trends, maps and leaderboards, online-player counts, and Blocklytics service health.
 
-Player data now uses the versioned [Blocklytics public API](https://api.blocklytics.naknu.li/docs), which stores observations from the official BlockFront API. Blocklytics is an independent community project. No API key is required.
+Player data uses the versioned [Blocklytics API](https://api.blocklytics.naknu.li/docs), which stores observations from the official BlockFront API. Blocklytics is an independent community project. Its current API requires a contributor-issued key. The provider's terms prohibit using that key to track players, so add a key to this integration only if Blocklytics explicitly authorizes this use.
 
 ## Install
 
@@ -12,7 +12,13 @@ Player data now uses the versioned [Blocklytics public API](https://api.blocklyt
 2. Add `https://github.com/denkz0ne/blockfront_ha_integration` with category **Integration**.
 3. Install **BlockFront Stats** and restart Home Assistant when prompted.
 4. Open **Settings → Devices & services → Add integration**, then select **BlockFront Stats**.
-5. Enter the BlockFront username to track.
+5. Enter the BlockFront username. Add a Blocklytics API key only if the provider has explicitly authorized its use in Home Assistant.
+
+### Blocklytics API key
+
+The key is optional in the setup form and in **Settings → Devices & services → BlockFront Stats → Configure**. It is stored with the config entry and sent as a Bearer token only to `api.blocklytics.naknu.li/v1/`. It is never sent to Vuis, the preview API, or the official BlockFront API. In the options form, leaving the password field empty keeps the saved key.
+
+Blocklytics issues keys to contributors rather than through self-service registration. Its current terms prohibit using a contributor key to track players. Do not enter a key unless the provider has explicitly authorized this integration use. Without an authorized key, Blocklytics profile and statistics requests cannot succeed, so the player statistics are unavailable. The online-player count still has its official website fallback, and Vuis cloud mode counts are independent.
 
 ### Manual
 
@@ -93,11 +99,11 @@ Public quota diagnostics expose last observed headers and timestamps without ext
 
 The official website fallback parses `N Players Online Now!`. Markup changes produce an error and retained stale data, never a fabricated zero.
 
-Recent match history and public profile availability are controlled by BlockFront and its data provider. The integration makes no game-changing requests and needs no credentials.
+Recent match history and public profile availability are controlled by BlockFront and its data provider. The integration makes no game-changing requests. Follow the provider's access terms; do not use a contributor key for player tracking unless the provider explicitly authorizes that use. Key setup and storage behavior are described above and in the [API migration notes](docs/api-migration-2026-10.md).
 
 ## Troubleshooting
 
-- **Could not contact the statistics service:** Retry setup later. The username is resolved during setup, so the API must be reachable at that time.
+- **Could not contact the statistics service:** Check that Blocklytics is reachable and that an authorized API key is configured. The username is resolved during setup, so the API must accept that request at that time.
 - **Service status is degraded:** Check `datasets`, `stale_datasets`, `player_data_available` and `last_error`. This does not imply that HA needs a restart.
 - **Online count uses a fallback:** `public_api_error` and `api_error` distinguish public API and Vuis failures.
 - **A value is unknown:** The API has not supplied that value or the first fetch has not succeeded. Check `last_error` and `last_successful_update` before changing the interval.

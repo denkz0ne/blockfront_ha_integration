@@ -2,7 +2,7 @@
 
 ## What was inspected
 
-The production contract is the live [OpenAPI document](https://api.blocklytics.naknu.li/openapi.json), cross-checked against the full API guide and the preview website's requests and rendered player/analytics pages. The public API has 20 documented routes. It is unauthenticated, read-only, and returns `{data, meta}` envelopes. A `GET` reads stored observations; it does not request a fresh capture from BlockFront.
+The production contract is the live [OpenAPI document](https://api.blocklytics.naknu.li/openapi.json), cross-checked against the full API guide and the preview website's requests and rendered player/analytics pages. The API has 20 documented read-only routes and returns `{data, meta}` envelopes. A `GET` reads stored observations; it does not request a fresh capture from BlockFront. API-key access is described by the provider's API portal: keys are contributor-issued, and the provider's terms prohibit player tracking unless the provider explicitly authorizes this use. The integration supports an optional Bearer key and sends it only to the production API host. Player and statistics requests require a provider-issued, authorized key.
 
 The API documents a default per-IP token bucket of 30 burst requests and 60 requests per minute sustained. `RateLimit-*`, `Retry-After`, `ETag` and `Cache-Control` headers are the runtime authority. The integration records the quota headers and now revalidates cached public responses with `If-None-Match`; a `304` reuses the previous JSON body without losing its source timestamp.
 

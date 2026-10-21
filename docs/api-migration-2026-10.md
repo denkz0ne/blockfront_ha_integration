@@ -4,6 +4,12 @@
 
 The integration uses the production `/v1` API as its main source and keeps existing config-entry data, sensor unique IDs, units, and local military/skill-rank images. The expanded inventory of all documented routes, preview-only findings, source timestamps, cache behavior, and limits is in [the API inventory](blocklytics-api-inventory-2026-10.md).
 
+## API key configuration
+
+Version 0.3.1 adds an optional password field to initial setup and the integration's **Configure** options. A key is sent only as `Authorization: Bearer …` to the production `https://api.blocklytics.naknu.li/v1/` host. It is not sent to the Vuis cloud endpoint, preview archive, official BlockFront API, or official website. An empty options field preserves a key already saved in the config entry.
+
+Blocklytics issues keys to contributors and its current terms prohibit using a contributor key to track players. Only configure one if the provider has explicitly authorized the integration use. A key is not bundled in the integration or needed to install it. Without an authorized key, Blocklytics profile and personal-statistics calls cannot succeed; the online count can still use its existing fallback chain, and Vuis mode counts are independent. Since no key was available during this release, authenticated live API behavior has not been verified against a provider-issued key.
+
 ## Added data groups
 
 - **Personal history:** 365-day lifetime snapshots, competitive-rank observations, and season score/rank history.
@@ -22,6 +28,6 @@ The newest 100 match records and leaderboard page are fetched; the integration d
 
 ## Deployment boundary
 
-These changes update repository code and documentation. They do not restart Home Assistant, change the live config entry, or publish a release. GitHub currently has no open issues for this repository; the resulting branch is prepared for review.
+Version 0.3.1 changes repository code and documentation only. It does not restart Home Assistant or edit a live config entry. After installing the release, configure a provider-authorized key in the integration options if one is available.
 
 References: [OpenAPI schema](https://api.blocklytics.naknu.li/openapi.json), [complete API guide](https://api.blocklytics.naknu.li/llms-full.txt), [preview site](https://preview.blocklytics.naknu.li/).

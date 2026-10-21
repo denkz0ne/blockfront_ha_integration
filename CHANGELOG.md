@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 — 2026-10-21
+
+- Add optional Blocklytics API key configuration during setup and in integration options.
+- Send the key only to the Blocklytics production API; do not send it to Vuis, the preview API, or the official BlockFront API.
+- Document provider authorization requirements and expected behavior when no key is configured.
+
 ## 0.3.0 — 2026-10-20
 
 - Cover the documented Blocklytics v1 API for player profiles, recent matches, analytics, lifetime history, competitive rank history, season scores, clans, maps, trends, online history, leaderboards and service status.
