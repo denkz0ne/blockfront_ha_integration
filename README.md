@@ -33,6 +33,12 @@ Online totals can use alternative sources when the primary request is unavailabl
 
 The integration also includes local rank and skill-rank pictures. Some optional or archived values may be missing or delayed. Unknown values remain unknown rather than being shown as zero. Recorded match and analytics data may cover only a sample, not a player's full career.
 
+## Dashboard example
+
+A ready-to-paste three-column Home Assistant view is available in [examples/blockfront-dashboard.yaml](examples/blockfront-dashboard.yaml). It groups profile and progression, personal statistics, matches, online population, and trends in a light, compact style.
+
+The example uses entity IDs for the BlockFront username `denkz0ne`; replace that prefix with the entity IDs created for your configured player. It requires the separate HACS frontend cards `button-card` and `apexcharts-card`. Add the file contents as a view in a YAML-mode dashboard.
+
 ## Refresh intervals
 
 Each data group can be adjusted independently under **Settings → Devices & services → BlockFront Stats → Configure**.
