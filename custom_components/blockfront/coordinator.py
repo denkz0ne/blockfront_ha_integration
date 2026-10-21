@@ -117,9 +117,8 @@ type BlockFrontConfigEntry = ConfigEntry[BlockFrontRuntimeData]
 
 def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntimeData:
     """Build an API client and independently scheduled data groups."""
-    api_key = entry.options.get(
-        CONF_BLOCKLYTICS_API_KEY,
-        entry.data.get(CONF_BLOCKLYTICS_API_KEY),
+    api_key = entry.options.get(CONF_BLOCKLYTICS_API_KEY) or entry.data.get(
+        CONF_BLOCKLYTICS_API_KEY
     )
     api = BlockFrontApi(async_get_clientsession(hass), api_key=api_key)
     options = dict(entry.options)

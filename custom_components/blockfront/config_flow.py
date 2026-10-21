@@ -102,6 +102,8 @@ class BlockFrontOptionsFlow(OptionsFlow):
             )
         }
         for key, default in DEFAULT_OPTIONS.items():
+            if key == CONF_BLOCKLYTICS_API_KEY:
+                continue
             saved_value = self.config_entry.options.get(key, default)
             schema[vol.Required(key, default=saved_value)] = vol.All(
                 vol.Coerce(int),
