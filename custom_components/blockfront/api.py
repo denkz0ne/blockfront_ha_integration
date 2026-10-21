@@ -51,9 +51,14 @@ class BlockFrontApi:
     """Small async client using Home Assistant's shared aiohttp session."""
 
     def __init__(
-        self, session: aiohttp.ClientSession, *, timeout: int = REQUEST_TIMEOUT_SECONDS
+        self,
+        session: aiohttp.ClientSession,
+        *,
+        timeout: int = REQUEST_TIMEOUT_SECONDS,
+        api_key: str | None = None,
     ) -> None:
         self._session = session
+        self._api_key = api_key.strip() if api_key and api_key.strip() else None
         self._timeout = aiohttp.ClientTimeout(total=timeout)
         self._last_rate_limit: dict[str, str] = {}
         self._last_retry_after: str | None = None
@@ -87,6 +92,8 @@ class BlockFrontApi:
             self.public_last_attempt = datetime.now(UTC).isoformat()
         try:
             request_headers = {}
+            if public and self._api_key:
+                request_headers["Authorization"] = f"Bearer {self._api_key}"
             cached = self._etag_cache.get(cache_key)
             if cached is not None:
                 request_headers["If-None-Match"] = cached[0]

@@ -8,10 +8,12 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import ApiError, BlockFrontApi, PlayerNotFound
 from .const import (
+    CONF_BLOCKLYTICS_API_KEY,
     CONF_PLAYER_UUID,
     CONF_USERNAME,
     DEFAULT_OPTIONS,
@@ -38,7 +40,10 @@ class BlockFrontConfigFlow(ConfigFlow, domain=DOMAIN):
             if not _USERNAME_PATTERN.fullmatch(username):
                 errors[CONF_USERNAME] = "invalid_username"
             else:
-                api = BlockFrontApi(async_get_clientsession(self.hass))
+                api_key = user_input.get(CONF_BLOCKLYTICS_API_KEY, "").strip()
+                api = BlockFrontApi(
+                    async_get_clientsession(self.hass), api_key=api_key or None
+                )
                 try:
                     player_uuid = await api.async_resolve_player(username)
                 except PlayerNotFound:
@@ -48,16 +53,22 @@ class BlockFrontConfigFlow(ConfigFlow, domain=DOMAIN):
                 else:
                     await self.async_set_unique_id(player_uuid)
                     self._abort_if_unique_id_configured()
+                    entry_data = {CONF_USERNAME: username, CONF_PLAYER_UUID: player_uuid}
+                    if api_key:
+                        entry_data[CONF_BLOCKLYTICS_API_KEY] = api_key
                     return self.async_create_entry(
                         title=username,
-                        data={CONF_USERNAME: username, CONF_PLAYER_UUID: player_uuid},
+                        data=entry_data,
                     )
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {vol.Required(CONF_USERNAME): str}
-            ),
+            data_schema=vol.Schema({
+                vol.Required(CONF_USERNAME): str,
+                vol.Optional(CONF_BLOCKLYTICS_API_KEY, default=""): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                ),
+            }),
             errors=errors,
         )
 
@@ -76,9 +87,20 @@ class BlockFrontOptionsFlow(OptionsFlow):
     ) -> dict[str, Any]:
         """Show validated polling intervals and save the selection."""
         if user_input is not None:
+            saved_key = self.config_entry.options.get(
+                CONF_BLOCKLYTICS_API_KEY,
+                self.config_entry.data.get(CONF_BLOCKLYTICS_API_KEY, ""),
+            )
+            user_input[CONF_BLOCKLYTICS_API_KEY] = (
+                user_input.get(CONF_BLOCKLYTICS_API_KEY, "").strip() or saved_key
+            )
             return self.async_create_entry(title="", data=user_input)
 
-        schema: dict[vol.Marker, Any] = {}
+        schema: dict[vol.Marker, Any] = {
+            vol.Optional(CONF_BLOCKLYTICS_API_KEY, default=""): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+            )
+        }
         for key, default in DEFAULT_OPTIONS.items():
             saved_value = self.config_entry.options.get(key, default)
             schema[vol.Required(key, default=saved_value)] = vol.All(

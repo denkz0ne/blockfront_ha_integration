@@ -11,6 +11,7 @@ PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR)
 
 CONF_USERNAME = "username"
 CONF_PLAYER_UUID = "player_uuid"
+CONF_BLOCKLYTICS_API_KEY = "blocklytics_api_key"
 
 OPTION_PROFILE_INTERVAL = "profile_interval"
 OPTION_MATCHES_INTERVAL = "matches_interval"

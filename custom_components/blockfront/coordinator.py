@@ -14,7 +14,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import ApiError, BlockFrontApi, async_fetch_cloud_data, parse_service_status
-from .const import DOMAIN, get_update_interval
+from .const import CONF_BLOCKLYTICS_API_KEY, DOMAIN, get_update_interval
 
 _LOGGER = logging.getLogger(__name__)
 type Fetcher = Callable[[], Awaitable[dict[str, Any]]]
@@ -117,7 +117,11 @@ type BlockFrontConfigEntry = ConfigEntry[BlockFrontRuntimeData]
 
 def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntimeData:
     """Build an API client and independently scheduled data groups."""
-    api = BlockFrontApi(async_get_clientsession(hass))
+    api_key = entry.options.get(
+        CONF_BLOCKLYTICS_API_KEY,
+        entry.data.get(CONF_BLOCKLYTICS_API_KEY),
+    )
+    api = BlockFrontApi(async_get_clientsession(hass), api_key=api_key)
     options = dict(entry.options)
 
     async def fetch_profile() -> dict[str, Any]:
