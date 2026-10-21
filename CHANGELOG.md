@@ -1,15 +1,21 @@
 # Changelog
 
+## 0.3.1 — 2026-10-21
+
+- Add optional API key configuration during setup and in integration options.
+- Send the key only to the external statistics service.
+- Document that provider authorization is required and explain behavior when no key is configured.
+
 ## 0.3.0 — 2026-10-20
 
-- Cover the documented Blocklytics v1 API for player profiles, recent matches, analytics, lifetime history, competitive rank history, season scores, clans, maps, trends, online history, leaderboards and service status.
-- Add preview archive sensors for class XP and saved inventory, including their original capture timestamps.
+- Cover personal profiles, recent matches, analytics, history, rank progression, season scores, clans, maps, trends, online history, leaderboards and service status.
+- Add archived class XP and saved inventory sensors, including their original capture timestamps.
 - Fetch up to 100 recent matches and expose pagination metadata.
-- Add independently configurable refresh intervals for personal history, preview archives and global game data.
-- Revalidate public API responses with ETags to reduce repeated data transfer and preserve source capture times.
+- Add independently configurable refresh intervals for personal history, archived data and game-wide statistics.
+- Revalidate unchanged service responses to reduce repeated data transfer and preserve source capture times.
 - Preserve entity IDs, local rank badges, duration units and last good values on failures.
 - Add recorded-match analytics, map/mode performance tables and latest-match duration/end entities.
-- Expose source freshness, active-dataset health, quota diagnostics and HTTP 429 backoff.
-- Retain Vuis per-mode counts and optional legacy karma/bootcamp fields.
+- Expose source freshness, service health, request-limit diagnostics and backoff after rate limits.
+- Retain per-mode counts from a separate cloud source and optional legacy karma/bootcamp fields.
 - Keep unsupported trophies and missing values unknown instead of reporting zero.
-- Document endpoint coverage, data freshness, preview-only compatibility data and request budgets.
+- Document data coverage, freshness, optional archived data and request budgets.
