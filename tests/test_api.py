@@ -8,6 +8,7 @@ from custom_components.blockfront.api import (
     ApiError,
     BlockFrontApi,
     PlayerNotFound,
+    async_fetch_cloud_data,
     async_fetch_online_data,
     normalize_api_base_url,
     parse_official_online_count,
@@ -275,3 +276,258 @@ def test_service_status_degrades_when_feed_is_stale_or_failing() -> None:
 def test_service_status_rejects_malformed_feeds() -> None:
     with pytest.raises(ApiError, match="datasets"):
         parse_service_status({"data": {"datasets": "bad"}, "meta": {"stale": False}})
+
+
+class FakeFallbackApi:
+    """Observe which online sources were actually contacted."""
+
+    def __init__(
+        self,
+        primary: object | Exception,
+        cloud: object | Exception | None = None,
+        official: object | Exception | None = None,
+        website: int | Exception | None = None,
+    ) -> None:
+        self.primary = primary
+        self.cloud = cloud
+        self.official = official
+        self.website = website
+        self.calls: list[str] = []
+
+    async def async_get_overview(self) -> object:
+        self.calls.append("primary")
+        if isinstance(self.primary, Exception):
+            raise self.primary
+        return self.primary
+
+    async def async_get_cloud_data(self) -> object:
+        self.calls.append("cloud")
+        assert self.cloud is not None, "Cloud fallback was not expected"
+        if isinstance(self.cloud, Exception):
+            raise self.cloud
+        return self.cloud
+
+    async def _get_json(self, path: str, **kwargs: Any) -> object:
+        self.calls.append("official")
+        assert path == "" and kwargs["params"] == {"type": "player_count"}
+        assert self.official is not None, "Official fallback was not expected"
+        if isinstance(self.official, Exception):
+            raise self.official
+        return self.official
+
+    async def async_get_official_online_count(self) -> int:
+        self.calls.append("website")
+        assert self.website is not None, "Website fallback was not expected"
+        if isinstance(self.website, Exception):
+            raise self.website
+        return self.website
+
+
+@pytest.mark.asyncio
+async def test_online_fallback_does_not_request_cloud_when_primary_is_current() -> None:
+    api = FakeFallbackApi(
+        {"online": {"playersOnline": 96}, "generatedAt": 1720000000000, "source_stale": False}
+    )
+    data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
+
+    assert api.calls == ["primary"]
+    assert data["online_count"] == 96
+    assert data["polling_status"] == "available"
+    assert data["source"] == "statistics_api"
+    assert data["source_timestamp"] == 1720000000000
+    assert data["source_stale"] is False
+    assert data["fallback_errors"] == {}
+
+
+@pytest.mark.asyncio
+async def test_online_fallback_selects_cloud_when_primary_unusable() -> None:
+    api = FakeFallbackApi(
+        ApiError("Primary timeout"),
+        {"players_online": 80, "_rate_limit": {"RateLimit-Limit": "20"}},
+    )
+    data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
+
+    assert api.calls == ["primary", "cloud"]
+    assert data["online_count"] == 80
+    assert data["source"] == "blockfront_cloud_api"
+    assert data["polling_status"] == "available"
+    assert data["source_timestamp"] is None
+    assert data["source_freshness"] == "unknown"
+    assert data["public_api_error"] == "Primary timeout"
+
+
+@pytest.mark.asyncio
+async def test_online_stale_primary_uses_backup_without_inheriting_timestamp() -> None:
+    api = FakeFallbackApi(
+        {"online": {"playersOnline": 70}, "generatedAt": 1000, "source_stale": True},
+        {"players_online": 84},
+    )
+    data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
+
+    assert api.calls == ["primary", "cloud"]
+    assert data["online_count"] == 84
+    assert data["source"] == "blockfront_cloud_api"
+    assert data["source_timestamp"] is None
+    assert data["source_stale"] is None
+
+
+@pytest.mark.asyncio
+async def test_online_cloud_quota_error_does_not_mark_official_backup_unavailable() -> None:
+    api = FakeFallbackApi(
+        ApiError("Primary failed"),
+        ApiError("Cloud quota exhausted", status_code=429, retry_after="60"),
+        {"playersOnline": 77},
+    )
+    data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
+
+    assert api.calls == ["primary", "cloud", "official"]
+    assert data["online_count"] == 77
+    assert data["source"] == "blockfront_official_api"
+    assert data["polling_status"] == "available"
+    assert data["source_timestamp"] is None
+    assert data["rate_limit"] == {}
+    assert "blockfront_cloud_api" in data["fallback_errors"]
+
+
+@pytest.mark.asyncio
+async def test_online_fallback_can_use_official_website() -> None:
+    api = FakeFallbackApi(
+        ApiError("Primary timeout"),
+        ApiError("Cloud unavailable"),
+        ApiError("Official API unavailable"),
+        73,
+    )
+    data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
+
+    assert api.calls == ["primary", "cloud", "official", "website"]
+    assert data["online_count"] == 73
+    assert data["source"] == "official_website"
+    assert data["polling_status"] == "available"
+    assert data["source_timestamp"] is None
+
+
+@pytest.mark.asyncio
+async def test_online_stale_primary_is_preserved_when_all_fallbacks_fail() -> None:
+    api = FakeFallbackApi(
+        {"online": {"playersOnline": 66}, "generatedAt": 1000, "source_stale": True},
+        ApiError("Cloud offline"),
+        ApiError("Official API offline"),
+        ApiError("Website offline"),
+    )
+    data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
+
+    assert api.calls == ["primary", "cloud", "official", "website"]
+    assert data["online_count"] == 66
+    assert data["source"] == "statistics_api"
+    assert data["source_timestamp"] == 1000
+    assert data["source_stale"] is True
+    assert data["polling_status"] == "stale"
+
+
+@pytest.mark.asyncio
+async def test_online_all_sources_unavailable_raises_api_error() -> None:
+    api = FakeFallbackApi(
+        ApiError("Primary timeout"),
+        ApiError("Cloud quota", status_code=429, retry_after="60"),
+        ApiError("Official API offline"),
+        ApiError("Website offline"),
+    )
+    with pytest.raises(ApiError, match="all sources") as err:
+        await async_fetch_cloud_data(api)  # type: ignore[arg-type]
+
+    assert api.calls == ["primary", "cloud", "official", "website"]
+    assert err.value.status_code == 429
+    assert err.value.retry_after == "60"
+
+
+@pytest.mark.asyncio
+async def test_archive_reads_enveloped_class_and_inventory_data() -> None:
+    player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
+    api = BlockFrontApi(
+        FakeSession(
+            FakeResponse(payload={
+                "data": {"items": [{"id": 0, "exp": 130}], "captured_at": 1720000000000},
+                "meta": {"stale": False, "updatedAt": "2026-10-20T15:00:00Z"},
+            }),
+            FakeResponse(payload={
+                "data": {"items": [{"name": "item"}], "captured_at": 1719000000000},
+                "meta": {"stale": True, "updatedAt": "2026-10-19T12:00:00Z"},
+            }),
+        ),
+        api_base_url=TEST_API_BASE_URL,
+    )
+    data = await api.async_get_archive_data(player_uuid)
+
+    assert data["classes"]["items"] == [{"id": 0, "exp": 130}]
+    assert data["classes"]["captured_at"] == 1720000000000
+    assert data["classes"]["source_timestamp"] == "2026-10-20T15:00:00Z"
+    assert data["classes"]["source_stale"] is False
+    assert data["inventory"]["items"] == [{"name": "item"}]
+    assert data["inventory"]["source_stale"] is True
+    assert data["source_stale"] is True
+
+
+@pytest.mark.asyncio
+async def test_archive_rejects_raw_or_invalid_envelopes_without_fabricating_zero() -> None:
+    session = FakeSession(
+        FakeResponse(payload={"items": [{"id": 0, "exp": 30}], "captured_at": 123}),
+        FakeResponse(payload={
+            "data": {"items": [{"name": "item"}], "captured_at": 2000},
+            "meta": {"stale": False},
+        }),
+    )
+    api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL)
+    data = await api.async_get_archive_data("85c194ce-8ae5-4736-bf14-7e9bdd204c66")
+
+    assert data["classes"]["items"] is None
+    assert data["classes"]["captured_at"] is None
+    assert data["classes"]["error"] is not None
+    assert data["inventory"]["items"] == [{"name": "item"}]
+
+
+@pytest.mark.asyncio
+async def test_archive_suppresses_repeated_404_for_one_day() -> None:
+    session = FakeSession(
+        FakeResponse(status=404),
+        FakeResponse(payload={
+            "data": {"items": []}, "meta": {"stale": False},
+        }),
+        FakeResponse(payload={
+            "data": {"items": []}, "meta": {"stale": False},
+        }),
+    )
+    api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL)
+    uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
+
+    first = await api.async_get_archive_data(uuid)
+    second = await api.async_get_archive_data(uuid)
+
+    assert first["classes"]["items"] is None
+    assert second["classes"]["items"] is None
+    assert "404" in second["classes"]["error"]
+    assert first["inventory"]["items"] == []
+    assert second["inventory"]["items"] == []
+    assert len(session.requests) == 3
+    assert session.requests[0][0].endswith("/classes")
+    assert session.requests[2][0].endswith("/inventory")
+
+
+@pytest.mark.asyncio
+async def test_archive_invalid_capture_timestamp_is_not_accepted() -> None:
+    api = BlockFrontApi(
+        FakeSession(
+            FakeResponse(payload={
+                "data": {"items": [], "captured_at": True},
+                "meta": {"stale": False},
+            }),
+            FakeResponse(payload={
+                "data": {"items": [], "captured_at": 1720000000000},
+                "meta": {"stale": False},
+            }),
+        ),
+        api_base_url=TEST_API_BASE_URL,
+    )
+    data = await api.async_get_archive_data("85c194ce-8ae5-4736-bf14-7e9bdd204c66")
+    assert data["classes"]["items"] is None
+    assert "capture timestamp" in data["classes"]["error"]
+    assert data["inventory"]["items"] == []
