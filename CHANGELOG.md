@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 — 2026-10-22
+
+- Render the optional activity entity as a native Home Assistant entity selector so it can be selected or changed in integration settings.
+
 ## 0.5.0 — 2026-10-22
 
 - Coordinate and coalesce API requests by origin and credential scope; prioritize profile and match freshness, share quota cooldowns and back off transient failures.
