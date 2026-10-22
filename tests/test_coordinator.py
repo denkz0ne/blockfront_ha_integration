@@ -168,6 +168,8 @@ async def test_online_success_with_unknown_source_age_is_not_misreported_as_outa
     assert result["value"]["online_count"] == 91
     assert result["stale"] is False
     assert result["value"]["source_timestamp"] is None
+    assert result["value"]["online_last_successful_update"]
+    assert "cloud_last_successful_update" not in result["value"]
 
 
 @pytest.mark.asyncio
