@@ -5,15 +5,46 @@ from typing import Any
 import pytest
 
 from custom_components.blockfront.api import (
-    API_BASE_URL,
     ApiError,
     BlockFrontApi,
     PlayerNotFound,
     async_fetch_online_data,
+    normalize_api_base_url,
     parse_official_online_count,
     parse_online_count,
     parse_service_status,
 )
+
+TEST_API_BASE_URL = "https://statistics.example.invalid/v1/"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("https://statistics.example.invalid/v1", TEST_API_BASE_URL),
+        ("http://localhost:8080/api/", "http://localhost:8080/api/"),
+    ],
+)
+def test_normalize_api_base_url(value: str, expected: str) -> None:
+    assert normalize_api_base_url(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "statistics.example.invalid/v1",
+        "ftp://statistics.example.invalid/v1",
+        "https://user:password@statistics.example.invalid/v1",
+        "https://statistics.example.invalid/v1?key=secret",
+        "https://statistics.example.invalid/v1#fragment",
+        "https://statistics.example.invalid:invalid/v1",
+        "https://statistics example.invalid/v1",
+    ],
+)
+def test_normalize_api_base_url_rejects_invalid_or_sensitive_url(value: str) -> None:
+    with pytest.raises(ValueError):
+        normalize_api_base_url(value)
 
 
 class FakeResponse:
@@ -87,25 +118,50 @@ class FakeOnlineApi:
 async def test_resolve_player_returns_uuid() -> None:
     username = "denkz0ne"
     player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
-    session = FakeSession(FakeResponse(payload={
-        "data": [{"username": username, "uuid": player_uuid}],
-        "meta": {"stale": False},
-    }))
-    assert await BlockFrontApi(session).async_resolve_player(username) == player_uuid
-    assert session.requests[0][0] == f"{API_BASE_URL}players/search"
+    session = FakeSession(
+        FakeResponse(
+            payload={
+                "data": [{"username": username, "uuid": player_uuid}],
+                "meta": {"stale": False},
+            }
+        )
+    )
+    api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL)
+    assert await api.async_resolve_player(username) == player_uuid
+    assert session.requests[0][0] == f"{TEST_API_BASE_URL}players/search"
     assert session.requests[0][1]["params"] == {"q": username}
 
 
 @pytest.mark.asyncio
+async def test_api_key_is_sent_only_to_configured_statistics_api() -> None:
+    session = FakeSession(
+        FakeResponse(payload={"data": {"playersOnline": 4}, "meta": {"stale": False}}),
+        FakeResponse(payload={"players_online": 4}),
+    )
+    api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL, api_key="private-key")
+
+    await api._get_json("online")
+    await api.async_get_cloud_data()
+
+    assert session.requests[0][0].startswith(TEST_API_BASE_URL)
+    assert session.requests[0][1]["headers"]["Authorization"] == "Bearer private-key"
+    assert session.requests[1][0].startswith("https://blockfrontapi.vuis.dev/")
+    assert "headers" not in session.requests[1][1]
+
+
+@pytest.mark.asyncio
 async def test_resolve_player_missing_uuid_is_not_found() -> None:
-    api = BlockFrontApi(FakeSession(FakeResponse(payload={"data": [], "meta": {"stale": False}})))
+    api = BlockFrontApi(
+        FakeSession(FakeResponse(payload={"data": [], "meta": {"stale": False}})),
+        api_base_url=TEST_API_BASE_URL,
+    )
     with pytest.raises(PlayerNotFound):
         await api.async_resolve_player("unknown")
 
 
 @pytest.mark.asyncio
 async def test_api_timeout_is_reported_as_api_error() -> None:
-    api = BlockFrontApi(FakeSession(TimeoutError()))
+    api = BlockFrontApi(FakeSession(TimeoutError()), api_base_url=TEST_API_BASE_URL)
     with pytest.raises(ApiError, match="timed out"):
         await api.async_get_overview()
 
@@ -113,11 +169,15 @@ async def test_api_timeout_is_reported_as_api_error() -> None:
 @pytest.mark.asyncio
 async def test_profile_accepts_optional_missing_values() -> None:
     player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
-    api = BlockFrontApi(FakeSession(
-        FakeResponse(payload={"data": {"stats": {"kills": 12, "deaths": None}},
-                              "meta": {"stale": False}}),
-        FakeResponse(status=503),
-    ))
+    api = BlockFrontApi(
+        FakeSession(
+            FakeResponse(
+                payload={"data": {"stats": {"kills": 12, "deaths": None}}, "meta": {"stale": False}}
+            ),
+            FakeResponse(status=503),
+        ),
+        api_base_url=TEST_API_BASE_URL,
+    )
     profile = await api.async_get_player(player_uuid)
     assert profile["kills"] == 12
     assert profile["deaths"] is None
@@ -126,10 +186,16 @@ async def test_profile_accepts_optional_missing_values() -> None:
 @pytest.mark.asyncio
 async def test_matches_endpoint_requires_list_and_allows_empty_list() -> None:
     player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
-    api = BlockFrontApi(FakeSession(FakeResponse(payload={"data": [], "meta": {"stale": False}})))
+    api = BlockFrontApi(
+        FakeSession(FakeResponse(payload={"data": [], "meta": {"stale": False}})),
+        api_base_url=TEST_API_BASE_URL,
+    )
     assert await api.async_get_matches(player_uuid) == []
 
-    api = BlockFrontApi(FakeSession(FakeResponse(payload={"data": {}, "meta": {"stale": False}})))
+    api = BlockFrontApi(
+        FakeSession(FakeResponse(payload={"data": {}, "meta": {"stale": False}})),
+        api_base_url=TEST_API_BASE_URL,
+    )
     with pytest.raises(ApiError, match="envelope"):
         await api.async_get_matches(player_uuid)
 
@@ -168,7 +234,7 @@ async def test_online_data_uses_api_without_fetching_official_page() -> None:
     api = FakeOnlineApi({"online": {"playersOnline": 96}, "generatedAt": 1234}, 79)
     data = await async_fetch_online_data(api)  # type: ignore[arg-type]
     assert data["online_count"] == 96
-    assert data["source"] == "blocklytics"
+    assert data["source"] == "statistics_api"
     assert api.calls == ["overview"]
 
 
@@ -193,7 +259,9 @@ def test_service_status_degrades_when_feed_is_stale_or_failing() -> None:
     status = parse_service_status(
         {
             "data": {
-                "status": "ok", "apiVersion": "1.2.3", "playerData": True,
+                "status": "ok",
+                "apiVersion": "1.2.3",
+                "playerData": True,
                 "datasets": {"online": {"stale": False}, "analytics": {"stale": True}},
             },
             "meta": {"stale": False},

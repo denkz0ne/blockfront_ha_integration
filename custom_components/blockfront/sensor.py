@@ -68,7 +68,6 @@ class BlockFrontSensorDescription(SensorEntityDescription):
 
     coordinator_key: str
     value_key: str | None = None
-    game_mode: str | None = None
 
 
 SENSOR_DESCRIPTIONS = (
@@ -353,87 +352,6 @@ SENSOR_DESCRIPTIONS = (
         translation_key="online_players",
         coordinator_key="online",
         value_key="online_count",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_bootcamp_players",
-        translation_key="cloud_bootcamp_players",
-        coordinator_key="online",
-        game_mode="boot",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_domination_players",
-        translation_key="cloud_domination_players",
-        coordinator_key="online",
-        game_mode="dom",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_offensive_players",
-        translation_key="cloud_offensive_players",
-        coordinator_key="online",
-        game_mode="of",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_defusal_players",
-        translation_key="cloud_defusal_players",
-        coordinator_key="online",
-        game_mode="def",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_team_deathmatch_players",
-        translation_key="cloud_team_deathmatch_players",
-        coordinator_key="online",
-        game_mode="tdm",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_gun_game_players",
-        translation_key="cloud_gun_game_players",
-        coordinator_key="online",
-        game_mode="gg",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_free_for_all_players",
-        translation_key="cloud_free_for_all_players",
-        coordinator_key="online",
-        game_mode="ffa",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_infected_players",
-        translation_key="cloud_infected_players",
-        coordinator_key="online",
-        game_mode="inf",
-        icon="mdi:account-group",
-        native_unit_of_measurement="players",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    BlockFrontSensorDescription(
-        key="cloud_trouble_town_players",
-        translation_key="cloud_trouble_town_players",
-        coordinator_key="online",
-        game_mode="ttt",
         icon="mdi:account-group",
         native_unit_of_measurement="players",
         state_class=SensorStateClass.MEASUREMENT,
@@ -817,15 +735,6 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                 return result if isfinite(result) else None
             return None
 
-        if self.entity_description.game_mode is not None:
-            counts = value.get("game_player_count")
-            if not isinstance(counts, dict):
-                return None
-            result = counts.get(self.entity_description.game_mode)
-            if isinstance(result, int) and not isinstance(result, bool) and result >= 0:
-                return result
-            return None
-
         if self.entity_description.value_key is None:
             return None
         if self.entity_description.coordinator_key == "profile":
@@ -1050,23 +959,12 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                         rate_limit, "RateLimit-Reset", "X-RateLimit-Reset"
                     ),
                     "cloud_rate_limit_headers": rate_limit,
-                    "scoreboard_reset_time": value.get("scoreboard_reset_time"),
-                    "players_by_game_mode": value.get("game_player_count"),
                 }
             )
             if self.entity_description.key == "cloud_polling_status":
                 attributes["poll_interval_seconds"] = int(
                     self.coordinator.update_interval.total_seconds()
                 )
-            if self.entity_description.game_mode is not None:
-                attributes["game_mode"] = self.entity_description.game_mode
-                attributes["players_online"] = value.get("online_count")
-                attributes["source"] = "blockfront_cloud_api"
-                attributes["source_timestamp"] = value.get("cloud_last_successful_update")
-                attributes["source_stale"] = value.get("polling_status") != "available"
-                attributes["stale"] = attributes["source_stale"]
-                attributes["last_successful_update"] = value.get("cloud_last_successful_update")
-                attributes["last_error"] = value.get("api_error") or attributes["last_error"]
         elif key == "analytics":
             attributes.update(
                 {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-10-22
+
+- Configure the statistics API base URL locally instead of identifying its host in the repository.
+- Rename the saved API credential to a generic field and migrate existing credentials automatically.
+- Remove per-game-mode online sensors because no usable data source is currently available.
+- Remove the private provider profile URL from the dashboard example.
+- Keep aggregate online-player count fallback sources and report their source generically.
+- Clarify API URL and key setup, authorization, and polling behavior in the documentation.
+
 ## 0.3.1 — 2026-10-21
 
 - Add optional API key configuration during setup and in integration options.

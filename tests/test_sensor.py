@@ -86,7 +86,7 @@ def test_online_sensor_reports_fallback_source(hass) -> None:
                 "online_count": 79,
                 "source": "official_website",
                 "source_timestamp": None,
-                "api_error": "Blocklytics timed out",
+                "api_error": "Statistics API timed out",
             },
         ),
         make_entry(),
