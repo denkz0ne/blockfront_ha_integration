@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fetch online fallback sources only when the primary count is unavailable or explicitly stale; report the selected source, its capture metadata and actual polling status.
+- Parse optional class XP/inventory archive envelopes correctly, preserve last-good partial archive data and avoid repeated HTTP 404 polling for 24 hours.
+- Add regression tests for fallback ordering, stale data, rate limits and archived response validation.
+
 ## 0.4.0 — 2026-10-22
 
 - Configure the statistics API base URL locally instead of identifying its host in the repository.
