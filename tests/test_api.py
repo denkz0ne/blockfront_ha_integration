@@ -135,7 +135,7 @@ async def test_resolve_player_returns_uuid() -> None:
 @pytest.mark.asyncio
 async def test_api_key_is_sent_only_to_configured_statistics_api() -> None:
     session = FakeSession(
-        FakeResponse(payload={"data": {"players_online": 4}, "meta": {"stale": False}}),
+        FakeResponse(payload={"data": {"playersOnline": 4}, "meta": {"stale": False}}),
         FakeResponse(payload={"players_online": 4}),
     )
     api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL, api_key="private-key")
