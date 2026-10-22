@@ -107,7 +107,8 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 for key in ("classes", "inventory")
             )
         if self._name == "online":
-            if value.get("polling_status") == "available":
+            value["online_last_successful_update"] = attempted_at
+            if value.get("source") == "blockfront_cloud_api":
                 value["cloud_last_successful_update"] = attempted_at
 
         return {
