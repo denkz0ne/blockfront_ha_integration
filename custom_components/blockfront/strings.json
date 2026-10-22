@@ -37,10 +37,10 @@
           "history_interval": "Personal history and ranks interval (seconds)",
           "archive_interval": "Class XP and inventory archive interval (seconds)",
           "global_interval": "Maps, trends, population and leaderboards interval (seconds)"
-        },
-        "error": {
-          "invalid_api_url": "Enter a valid HTTP or HTTPS API base URL without credentials, query, or fragment."
         }
+      },
+      "error": {
+        "invalid_api_url": "Enter a valid HTTP or HTTPS API base URL without credentials, query, or fragment."
       }
     }
   },
