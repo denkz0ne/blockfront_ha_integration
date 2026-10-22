@@ -3,12 +3,15 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
+from homeassistant.components.binary_sensor import BinarySensorEntityDescription
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.blockfront.binary_sensor import BlockFrontBinarySensor
 from custom_components.blockfront.const import CONF_PLAYER_UUID, CONF_USERNAME, DOMAIN
 from custom_components.blockfront.sensor import (
     SENSOR_DESCRIPTIONS,
+    BlockFrontProgressSensor,
     BlockFrontSensor,
     _bound_attributes,
 )
@@ -62,6 +65,47 @@ def test_profile_sensor_uses_existing_value_and_keeps_missing_unknown(hass) -> N
 
     assert kills.native_value == 44
     assert deaths.native_value is None
+
+
+def test_player_sensor_friendly_name_starts_with_configured_username() -> None:
+    sensor = BlockFrontSensor(
+        make_coordinator(None, {"kills": 44}), make_entry(), description("kills")
+    )
+    sensor._attr_name = "Kills"
+
+    assert sensor._friendly_name_internal() == "[denkz0ne] Kills"
+    assert sensor.unique_id == f"{PLAYER_UUID}_kills"
+    assert sensor.suggested_object_id == "Kills"
+
+
+def test_global_sensor_friendly_name_does_not_include_username() -> None:
+    sensor = BlockFrontSensor(
+        make_coordinator(None, {"online_count": 8}), make_entry(), description("online_players")
+    )
+    sensor._attr_name = "Players online"
+
+    assert sensor._friendly_name_internal() == "Players online"
+
+
+def test_progress_sensor_friendly_name_starts_with_configured_username() -> None:
+    sensor = BlockFrontProgressSensor(make_entry(), "kills")
+    sensor._attr_name = "Kills since last observation"
+
+    assert sensor._friendly_name_internal() == "[denkz0ne] Kills since last observation"
+    assert sensor.unique_id == f"{PLAYER_UUID}_kills_since_observation"
+    assert sensor.suggested_object_id == "Kills since last observation"
+
+
+def test_binary_profile_sensor_friendly_name_starts_with_configured_username() -> None:
+    sensor = BlockFrontBinarySensor(
+        make_coordinator(None, {"bootcamp": True}),
+        make_entry(),
+        BinarySensorEntityDescription(key="bootcamp", translation_key="bootcamp"),
+    )
+    sensor._attr_name = "Bootcamp"
+
+    assert sensor._friendly_name_internal() == "[denkz0ne] Bootcamp"
+    assert sensor.unique_id == f"{PLAYER_UUID}_bootcamp"
 
 
 def test_latest_match_sensor_exposes_display_attributes(hass) -> None:

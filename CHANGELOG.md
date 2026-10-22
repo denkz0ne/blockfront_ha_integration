@@ -4,6 +4,7 @@
 
 - Render the optional activity entity as a native Home Assistant entity selector so it can be selected or changed in integration settings.
 - Clarify configuration fields with help text in English and Slovak, including window matching, cooldown, idle checks and manual activity modes.
+- Prefix player-specific entity names with the configured username and clarify the Statistics API request status sensor; leave global entities and entity IDs unchanged.
 
 ## 0.5.0 — 2026-10-22
 
