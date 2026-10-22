@@ -1,0 +1,70 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pripojenie hráča BlockFront",
+        "description": "Zadaj používateľské meno hráča a základnú adresu API so štatistikami.",
+        "data": {
+          "username": "Používateľské meno v BlockFront",
+          "api_base_url": "Základná adresa Statistics API",
+          "api_key": "API kľúč, ak ho smieš používať"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "Zadaj platné Minecraft meno (3 až 16 písmen, číslic alebo podčiarkovníkov).",
+      "invalid_api_url": "Zadaj platnú HTTP alebo HTTPS adresu API bez prihlasovacích údajov, parametrov a fragmentu.",
+      "invalid_player": "Hráča BlockFront sa nepodarilo nájsť.",
+      "cannot_connect": "K službe so štatistikami BlockFront sa nepodarilo pripojiť. Skús to neskôr."
+    },
+    "abort": {
+      "already_configured": "Tento hráč BlockFront je už pridaný."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Štatistiky, aktivita a intervaly obnovovania",
+        "description": "Nastav obnovovanie údajov. Senzor aktivity je voliteľný a môžeš ho kedykoľvek zmeniť; po uložení sa integrácia znovu načíta.",
+        "data": {
+          "api_base_url": "Základná adresa Statistics API",
+          "api_key": "API kľúč, ak ho smieš používať",
+          "profile_interval": "Obnovovanie profilu hráča (sekundy)",
+          "matches_interval": "Obnovovanie posledných zápasov (sekundy)",
+          "online_interval": "Obnovovanie počtu hráčov online (sekundy)",
+          "status_interval": "Kontrola dostupnosti služby (sekundy)",
+          "activity_entity": "Senzor aktivity BlockFront (voliteľný)",
+          "activity_match": "Text, ktorý má byť v názve okna",
+          "activity_cooldown_minutes": "Ako dlho po hraní obnovovať osobné údaje častejšie (minúty)",
+          "idle_heartbeat_minutes": "Kontrola osobných údajov pri nečinnosti alebo neznámej aktivite (minúty)",
+          "adaptive_polling": "Prispôsobovať obnovovanie osobných údajov",
+          "adaptive_margin_percent": "Dodatočná rezerva po zmene údajov (percentá)",
+          "presence_mode": "Režim detekcie aktivity",
+          "analytics_interval": "Obnovovanie štatistík zápasov (sekundy)",
+          "history_interval": "Obnovovanie osobnej histórie a hodností (sekundy)",
+          "archive_interval": "Obnovovanie XP tried a inventára (sekundy)",
+          "global_interval": "Obnovovanie máp, trendov a rebríčkov (sekundy)"
+        },
+        "data_description": {
+          "api_base_url": "Základná adresa tvojej služby so štatistikami. Integrácia ju používa na načítanie osobných údajov hráča.",
+          "api_key": "Ak už je kľúč uložený, nechaj toto pole prázdne. Kľúč zadávaj len vtedy, ak máš povolenie ho používať.",
+          "profile_interval": "Ako často kontrolovať profil, keď je osobné obnovovanie aktívne.",
+          "matches_interval": "Ako často kontrolovať, či pribudli zaznamenané zápasy.",
+          "online_interval": "Ako často obnovovať počet hráčov online v celej hre.",
+          "status_interval": "Ako často overovať dostupnosť služby so štatistikami.",
+          "activity_entity": "Vyber HASS.Agent Active Window alebo binárny senzor, ktorý spoľahlivo signalizuje hranie BlockFront. Senzor nie je pevne daný; môžeš ho neskôr zmeniť alebo výber zrušiť. Uloženie znovu načíta integráciu a začne sledovať vybraný senzor.",
+          "activity_match": "Pri textovom senzore sa aktivita rozpozná, ak jeho stav obsahuje tento text; nezáleží na veľkých a malých písmenách. Pre HASS.Agent Active Window zadaj BlockFront. Zodpovedajúci názov znamená, že okno je v popredí, nie že si určite pripojený do zápasu. Pri binárnom senzore sa toto pole nepoužíva.",
+          "activity_cooldown_minutes": "Po tom, ako senzor prestane označovať aktivitu, sa osobné údaje ešte počas tohto času obnovujú rýchlejšie. Služba tak môže doplniť oneskorené štatistiky a výsledok zápasu.",
+          "idle_heartbeat_minutes": "Ako často kontrolovať osobné údaje, keď sa hranie nezistí alebo je stav neznámy. Online počet hráčov, globálne štatistiky a dostupnosť služby majú vlastné intervaly.",
+          "adaptive_polling": "Intervaly sa prispôsobujú zmenám v zdrojových údajoch a senzoru aktivity. Limity intervalov a API sa stále dodržiavajú.",
+          "adaptive_margin_percent": "Po pozorovanom čase medzi zmenami údajov počká integrácia ešte o toto percento dlhšie, aby nekontrolovala príliš skoro.",
+          "presence_mode": "Automaticky sleduje vybraný senzor. Vynútená aktivita ponechá osobné obnovovanie zapnuté. Vynútená nečinnosť ho pozastaví. Globálne údaje sa obnovujú vo všetkých režimoch.",
+          "analytics_interval": "Ako často kontrolovať súhrny a rozdelenie zaznamenaných zápasov.",
+          "history_interval": "Ako často kontrolovať osobnú históriu a hodnosti.",
+          "archive_interval": "Ako často kontrolovať voliteľné údaje o XP tried a inventári.",
+          "global_interval": "Ako často obnovovať spoločné údaje hry. Obnovovanie pokračuje aj počas osobnej nečinnosti."
+        }
+      }
+    }
+  }
+}

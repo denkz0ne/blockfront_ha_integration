@@ -201,6 +201,10 @@ async def test_options_flow_exposes_activity_entity_as_entity_selector(hass) -> 
     assert default == "sensor.active_window"
     assert isinstance(entity_selector, selector.EntitySelector)
     assert entity_selector.config["domain"] == ["sensor", "binary_sensor"]
+    assert entity_selector("sensor.new_active_window") == "sensor.new_active_window"
+    assert entity_selector("binary_sensor.blockfront_playing") == "binary_sensor.blockfront_playing"
+    with pytest.raises(vol.Invalid):
+        entity_selector("switch.game_pc")
 
 
 @pytest.mark.asyncio
