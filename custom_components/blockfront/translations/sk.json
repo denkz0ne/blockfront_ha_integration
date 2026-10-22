@@ -66,5 +66,17 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "api_polling_status": {
+        "name": "API štatistík – stav požiadaviek",
+        "state": {
+          "available": "API funguje",
+          "unavailable": "API nedostupné",
+          "rate_limited": "Limit požiadaviek"
+        }
+      }
+    }
   }
 }

@@ -124,7 +124,14 @@
       "most_played_map": {"name": "Most played map"},
       "latest_match_duration": {"name": "Latest match duration"},
       "latest_match_end": {"name": "Latest match end"},
-      "api_polling_status": {"name": "Statistics API polling status"},
+      "api_polling_status": {
+        "name": "Statistics API request status",
+        "state": {
+          "available": "Available",
+          "unavailable": "Unavailable",
+          "rate_limited": "Rate limited"
+        }
+      },
       "api_requests_remaining": {"name": "Statistics API requests remaining"},
       "inventory_items": {"name": "Saved inventory items"},
       "profile_history": {"name": "Recorded profile history"},
