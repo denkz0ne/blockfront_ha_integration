@@ -79,7 +79,7 @@
       "latest_match": {"name": "Latest match"},
       "latest_match_score": {"name": "Latest match score"},
       "online_players": {"name": "Players online"},
-      "cloud_polling_status": {"name": "Cloud API polling status"},
+      "cloud_polling_status": {"name": "Online source polling status"},
       "service_status": {"name": "Statistics service status"},
       "tracked_matches": {"name": "Tracked matches"},
       "recorded_wins": {"name": "Recorded wins"},

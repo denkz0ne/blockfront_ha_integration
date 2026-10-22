@@ -83,8 +83,32 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
 
         value = dict(value)
+        if self._name == "archive":
+            # A failed optional archive endpoint must not erase a prior good snapshot.
+            previous_value = (self.data or {}).get("value")
+            if isinstance(previous_value, dict):
+                for key in ("classes", "inventory"):
+                    current = value.get(key)
+                    previous = previous_value.get(key)
+                    if (
+                        isinstance(current, dict)
+                        and current.get("error")
+                        and isinstance(previous, dict)
+                        and isinstance(previous.get("items"), list)
+                    ):
+                        value[key] = {
+                            **previous,
+                            "error": current["error"],
+                            "source_stale": True,
+                        }
+            value["source_stale"] = any(
+                isinstance(value.get(key), dict)
+                and value[key].get("source_stale") is True
+                for key in ("classes", "inventory")
+            )
         if self._name == "online":
-            if value.get("polling_status") == "available":
+            value["online_last_successful_update"] = attempted_at
+            if value.get("source") == "blockfront_cloud_api":
                 value["cloud_last_successful_update"] = attempted_at
 
         return {
@@ -92,7 +116,7 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "updated_at": attempted_at,
             "last_successful_update": attempted_at,
             "last_attempt": attempted_at,
-            "stale": value.get("source_stale", False),
+            "stale": value.get("source_stale") is True,
             "last_error": None,
         }
 

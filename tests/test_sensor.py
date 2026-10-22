@@ -116,3 +116,63 @@ def test_service_sensor_exposes_stale_feed_diagnostics(hass) -> None:
     assert sensor.native_value == "degraded"
     assert sensor.extra_state_attributes["stale_feed_count"] == 2
     assert sensor.extra_state_attributes["upstream_error"] == "upstream returned status 503"
+
+
+
+def test_archive_sensor_retains_source_capture_and_stale_diagnostics(hass) -> None:
+    archived = {
+        "classes": {
+            "items": [{"id": 0, "exp": 120}],
+            "captured_at": 1720000000000,
+            "source_timestamp": "2026-10-22T09:00:00Z",
+            "source_stale": True,
+            "source": "statistics_api_archive",
+            "error": "HTTP 503",
+        },
+        "inventory": {
+            "items": [{"name": "item"}],
+            "captured_at": 1710000000000,
+            "source_timestamp": "2026-10-20T09:00:00Z",
+            "source_stale": False,
+            "source": "statistics_api_archive",
+            "error": None,
+        },
+    }
+    coordinator = make_coordinator(hass, archived)
+    classes = BlockFrontSensor(coordinator, make_entry(), description("class_exp"))
+    inventory = BlockFrontSensor(coordinator, make_entry(), description("inventory_items"))
+
+    assert classes.native_value == 120
+    assert classes.extra_state_attributes["archive_source_stale"] is True
+    assert classes.extra_state_attributes["archive_source_timestamp"] == "2026-10-22T09:00:00Z"
+    assert classes.extra_state_attributes["archive_error"] == "HTTP 503"
+    assert inventory.native_value == 1
+    assert inventory.extra_state_attributes["archive_source_stale"] is False
+    assert inventory.extra_state_attributes["archive_source_timestamp"] == "2026-10-20T09:00:00Z"
+
+
+def test_online_sensor_exposes_selected_source_freshness(hass) -> None:
+    sensor = BlockFrontSensor(
+        make_coordinator(
+            hass,
+            {
+                "online_count": 81,
+                "source": "blockfront_official_api",
+                "source_timestamp": None,
+                "source_freshness": "unknown",
+                "source_stale": None,
+                "polling_status": "available",
+                "fallback_errors": {"statistics_api": "timeout"},
+            },
+        ),
+        make_entry(),
+        description("online_players"),
+    )
+
+    assert sensor.native_value == 81
+    assert sensor.extra_state_attributes["source_freshness"] == "unknown"
+    assert sensor.extra_state_attributes["fallback_errors"] == {"statistics_api": "timeout"}
+    assert sensor.extra_state_attributes["online_source"] == "blockfront_official_api"
+    assert sensor.extra_state_attributes["online_source_captured_at"] is None
+    assert sensor.extra_state_attributes["online_is_stale"] is None
+    assert sensor.extra_state_attributes["online_polling_status"] == "available"

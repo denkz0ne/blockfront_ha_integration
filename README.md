@@ -22,7 +22,7 @@ Copy `custom_components/blockfront` into `<Home Assistant config>/custom_compone
 
 Most player and game statistics come from a separately configured statistics API. Enter its base URL and, if authorized, its API key in the integration setup or **Configure** options. Home Assistant stores both locally in the config entry; the key is sent only to the configured API. Leaving the password field empty in **Configure** keeps the saved key.
 
-The aggregate online total can use alternative sources when the primary request is unavailable. Online counts by game mode are not currently provided. The integration does not change game data.
+The aggregate online total tries alternative sources only when the primary response fails or is explicitly marked stale. If a backup has no capture timestamp, its observation age remains unknown. Online counts by game mode are not currently provided. The integration does not change game data.
 
 ## What you get
 
@@ -64,7 +64,7 @@ Every successful update can be newer than the underlying game observation. Check
 - **Statistics unavailable:** Check that the service is reachable and that the configured key is authorized and valid.
 - **Service is degraded:** Review its dataset freshness and last error attributes.
 - **Online count uses a fallback:** Check the source and error attributes on the online-count sensor.
-- **A value is unknown:** The service may not publish it, or the first successful update has not arrived yet.
+- **A value is unknown:** The service may not publish it, or the first successful update has not arrived yet. Optional archive endpoints returning HTTP 404 are rechecked no more than once per day.
 
 See [data coverage and limitations](docs/data-coverage.md) and [configuration notes](docs/data-access.md) for a short overview.
 
