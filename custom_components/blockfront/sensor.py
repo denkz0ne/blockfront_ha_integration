@@ -63,6 +63,22 @@ CLASS_NAMES = {
     "9": "Commander",
 }
 ICON_BASE_PATH = "/api/blockfront/icons"
+_PLAYER_DATA_COORDINATORS = frozenset({"profile", "matches", "archive", "history", "analytics"})
+
+
+class _PlayerNamedEntity:
+    """Prefix player-specific friendly names without changing their entity IDs."""
+
+    _attr_player_specific_name = False
+    _username: str
+
+    def _friendly_name_internal(self) -> str | None:
+        """Return a bracketed player name for entities tied to one player's UUID."""
+        if self._attr_player_specific_name:
+            name = self.name
+            if isinstance(name, str):
+                return f"[{self._username}] {name}"
+        return super()._friendly_name_internal()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -593,7 +609,7 @@ async def async_setup_entry(
     )
 
 
-class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
+class BlockFrontSensor(_PlayerNamedEntity, CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
     """Represent a single player statistic or service value."""
 
     entity_description: BlockFrontSensorDescription
@@ -623,6 +639,7 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         self._polling_coordinators = runtime.coordinators if self._api is not None else {}
         self._attr_unique_id = f"{player_uuid}_{description.key}"
         self._attr_has_entity_name = True
+        self._attr_player_specific_name = description.coordinator_key in _PLAYER_DATA_COORDINATORS
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, player_uuid)},
             name=self._username,
@@ -1114,7 +1131,7 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         return _bound_attributes(attributes)
 
 
-class BlockFrontProgressSensor(SensorEntity):
+class BlockFrontProgressSensor(_PlayerNamedEntity, SensorEntity):
     """Expose a cumulative counter delta between distinct source snapshots."""
 
     _attr_has_entity_name = True
@@ -1122,6 +1139,8 @@ class BlockFrontProgressSensor(SensorEntity):
     def __init__(self, entry: BlockFrontConfigEntry, counter: str) -> None:
         self._entry = entry
         self._counter = counter
+        self._username = entry.data[CONF_USERNAME]
+        self._attr_player_specific_name = True
         self._attr_unique_id = f"{entry.data[CONF_PLAYER_UUID]}_{counter}_since_observation"
         self._attr_translation_key = f"{counter}_since_observation"
         self._attr_device_info = DeviceInfo(

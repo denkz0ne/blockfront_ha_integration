@@ -3,7 +3,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import voluptuous as vol
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import selector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.blockfront import async_migrate_entry
@@ -15,6 +17,7 @@ from custom_components.blockfront.const import (
     CONF_USERNAME,
     DEFAULT_OPTIONS,
     DOMAIN,
+    OPTION_ACTIVITY_ENTITY,
 )
 
 PLAYER_UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
@@ -165,11 +168,43 @@ async def test_options_flow_shows_independent_default_intervals(hass) -> None:
         marker.schema: marker.default() if callable(marker.default) else marker.default
         for marker in schema
     }
+    defaults.pop(OPTION_ACTIVITY_ENTITY, None)
+    expected_options = dict(DEFAULT_OPTIONS)
+    expected_options.pop(OPTION_ACTIVITY_ENTITY)
     assert defaults == {
         CONF_API_BASE_URL: "",
         CONF_API_KEY: "",
-        **DEFAULT_OPTIONS,
+        **expected_options,
     }
+
+
+@pytest.mark.asyncio
+async def test_options_flow_exposes_activity_entity_as_entity_selector(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="denkz0ne",
+        unique_id=PLAYER_UUID,
+        data={CONF_USERNAME: "denkz0ne", CONF_PLAYER_UUID: PLAYER_UUID},
+        options={OPTION_ACTIVITY_ENTITY: "sensor.active_window"},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    marker, entity_selector = next(
+        (marker, validator)
+        for marker, validator in result["data_schema"].schema.items()
+        if marker.schema == OPTION_ACTIVITY_ENTITY
+    )
+    assert isinstance(marker, vol.Optional)
+    default = marker.default() if callable(marker.default) else marker.default
+    assert default == "sensor.active_window"
+    assert isinstance(entity_selector, selector.EntitySelector)
+    assert entity_selector.config["domain"] == ["sensor", "binary_sensor"]
+    assert entity_selector("sensor.new_active_window") == "sensor.new_active_window"
+    assert entity_selector("binary_sensor.blockfront_playing") == "binary_sensor.blockfront_playing"
+    with pytest.raises(vol.Invalid):
+        entity_selector("switch.game_pc")
 
 
 @pytest.mark.asyncio

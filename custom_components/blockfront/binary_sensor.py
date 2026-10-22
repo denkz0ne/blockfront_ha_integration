@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_PLAYER_UUID, CONF_USERNAME, DOMAIN
 from .coordinator import BlockFrontConfigEntry, BlockFrontCoordinator
+from .sensor import _PlayerNamedEntity
 
 PARALLEL_UPDATES = 0
 
@@ -38,7 +39,9 @@ async def async_setup_entry(
     )
 
 
-class BlockFrontBinarySensor(CoordinatorEntity[BlockFrontCoordinator], BinarySensorEntity):
+class BlockFrontBinarySensor(
+    _PlayerNamedEntity, CoordinatorEntity[BlockFrontCoordinator], BinarySensorEntity
+):
     """Represent a boolean BlockFront profile field."""
 
     entity_description: BinarySensorEntityDescription
@@ -52,6 +55,8 @@ class BlockFrontBinarySensor(CoordinatorEntity[BlockFrontCoordinator], BinarySen
         super().__init__(coordinator)
         self.entity_description = description
         player_uuid = entry.data[CONF_PLAYER_UUID]
+        self._username = entry.data[CONF_USERNAME]
+        self._attr_player_specific_name = True
         self._attr_unique_id = f"{player_uuid}_{description.key}"
         self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(

@@ -148,17 +148,15 @@ class BlockFrontOptionsFlow(OptionsFlow):
                 vol.Coerce(int),
                 vol.Range(min=MIN_INTERVALS[key], max=MAX_INTERVAL_SECONDS),
             )
-        entity_default = self.config_entry.options.get(OPTION_ACTIVITY_ENTITY, "")
-        activity_selector = vol.Any(
-            "",
-            selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor", "binary_sensor"])
-            ),
+        entity_default = self.config_entry.options.get(OPTION_ACTIVITY_ENTITY)
+        entity_marker = (
+            vol.Optional(OPTION_ACTIVITY_ENTITY, default=entity_default)
+            if entity_default
+            else vol.Optional(OPTION_ACTIVITY_ENTITY)
         )
-        if entity_default:
-            schema[vol.Optional(OPTION_ACTIVITY_ENTITY, default=entity_default)] = activity_selector
-        else:
-            schema[vol.Optional(OPTION_ACTIVITY_ENTITY, default="")] = activity_selector
+        schema[entity_marker] = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain=["sensor", "binary_sensor"])
+        )
         schema[vol.Optional(OPTION_ACTIVITY_MATCH, default="BlockFront")] = str
         schema[
             vol.Required(
