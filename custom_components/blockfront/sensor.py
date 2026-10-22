@@ -815,6 +815,8 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                         "class_exp": _named_class_exp(classes.get("items")),
                         "captured_at": _epoch_millis_to_iso(classes.get("captured_at")),
                         "archive_source": classes.get("source"),
+                        "archive_source_timestamp": classes.get("source_timestamp"),
+                        "archive_source_stale": classes.get("source_stale"),
                         "archive_error": classes.get("error"),
                     }
                 )
@@ -824,6 +826,8 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                         "items": inventory.get("items"),
                         "captured_at": _epoch_millis_to_iso(inventory.get("captured_at")),
                         "archive_source": inventory.get("source"),
+                        "archive_source_timestamp": inventory.get("source_timestamp"),
+                        "archive_source_stale": inventory.get("source_stale"),
                         "archive_error": inventory.get("error"),
                     }
                 )
@@ -943,6 +947,8 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                 {
                     "source": value.get("source"),
                     "source_timestamp": value.get("source_timestamp"),
+                    "source_freshness": value.get("source_freshness"),
+                    "fallback_errors": value.get("fallback_errors"),
                     "api_error": value.get("api_error"),
                     "public_api_error": value.get("public_api_error"),
                     "cloud_polling_status": value.get("polling_status"),
