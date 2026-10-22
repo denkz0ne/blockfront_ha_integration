@@ -421,7 +421,7 @@ async def test_online_stale_primary_is_preserved_when_all_fallbacks_fail() -> No
     assert data["source"] == "statistics_api"
     assert data["source_timestamp"] == 1000
     assert data["source_stale"] is True
-    assert data["polling_status"] == "stale"
+    assert data["polling_status"] == "degraded"
 
 
 @pytest.mark.asyncio
