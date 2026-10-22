@@ -93,6 +93,7 @@ class BlockFrontApi:
         self._public_retry_until = 0.0
         self._public_reset_at: str | None = None
         self._etag_cache: dict[str, tuple[str, dict[str, Any]]] = {}
+        self._archive_unsupported_until: dict[str, float] = {}
 
     async def _get_json(
         self,
@@ -461,29 +462,55 @@ class BlockFrontApi:
         return result
 
     async def async_get_archive_data(self, player_uuid: str) -> dict[str, Any]:
-        """Read optional class XP and saved inventory, preserving capture times."""
+        """Read optional archived class XP and inventory from API envelopes."""
         result: dict[str, Any] = {}
         for key, suffix in (("classes", "classes"), ("inventory", "inventory")):
+            path = f"players/{player_uuid}/{suffix}"
             try:
-                payload = await self._get_json(f"players/{player_uuid}/{suffix}")
-                items = payload.get("items")
+                if self._archive_unsupported_until.get(path, 0.0) > monotonic():
+                    raise ApiError(
+                        f"Statistics API {key} archive endpoint is unavailable (HTTP 404)",
+                        status_code=404,
+                    )
+
+                data, meta = unpack_response(await self._get_json(path), dict)
+                items = data.get("items")
                 if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
                     raise ApiError(f"Statistics API returned invalid {key} archive data")
+                captured_at = data.get("captured_at")
+                if captured_at is not None and (
+                    isinstance(captured_at, bool)
+                    or not isinstance(captured_at, (int, float))
+                    or not math.isfinite(captured_at)
+                    or captured_at < 0
+                ):
+                    raise ApiError(f"Statistics API returned an invalid {key} capture timestamp")
+
                 result[key] = {
                     "items": items,
-                    "captured_at": payload.get("captured_at"),
+                    "captured_at": captured_at,
+                    "source_timestamp": meta.get("updatedAt"),
+                    "source_stale": meta["stale"],
                     "source": "statistics_api_archive",
                     "error": None,
                 }
             except ApiError as err:
+                if err.status_code == 404:
+                    # Optional endpoints may not exist; one re-probe per day is enough.
+                    self._archive_unsupported_until[path] = monotonic() + 86_400
                 result[key] = {
                     "items": None,
                     "captured_at": None,
+                    "source_timestamp": None,
+                    "source_stale": True,
                     "source": "statistics_api_archive",
                     "error": str(err),
                 }
         if all(result[key]["error"] for key in ("classes", "inventory")):
             raise ApiError("Statistics API archive data is unavailable")
+        result["source_stale"] = any(
+            result[key]["source_stale"] for key in ("classes", "inventory")
+        )
         return result
 
     async def async_get_global_data(self, *, featured_map: str | None = None) -> dict[str, Any]:
@@ -599,71 +626,100 @@ def parse_cloud_data(payload: object) -> dict[str, Any]:
 
 
 async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
-    """Read aggregate online totals from available public sources."""
-    online = None
-    public_error = None
-    cloud_error = None
-    source_stale = False
-    source_timestamp = None
+    """Select the first usable online source without probing unnecessary fallbacks."""
+    errors: dict[str, str] = {}
+    primary_candidate: tuple[int, str | int | None] | None = None
+
+    def selected(
+        count: int,
+        source: str,
+        *,
+        captured_at: str | int | None = None,
+        stale: bool | None = None,
+        rate_limit: dict[str, str] | None = None,
+        retry_after: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "online_count": count,
+            "source": source,
+            "source_timestamp": captured_at,
+            "source_stale": stale,
+            # Backups without capture metadata are live HTTP reads with unknown age.
+            "source_freshness": (
+                "stale" if stale is True else "reported_current" if stale is False else "unknown"
+            ),
+            "rate_limit": rate_limit or {},
+            "retry_after": retry_after,
+            "public_api_error": errors.get("statistics_api"),
+            "api_error": errors.get("blockfront_cloud_api"),
+            "fallback_errors": dict(errors),
+            "polling_status": "stale" if stale is True else "available",
+        }
+
     try:
         overview = await api.async_get_overview()
-        online = parse_online_count(overview)
-        source_timestamp = overview.get("generatedAt")
-        source_stale = overview.get("source_stale", True)
-        source = "statistics_api"
+        count = parse_online_count(overview)
+        captured_at = overview.get("generatedAt")
+        if overview.get("source_stale") is True:
+            # An explicit upstream stale marker triggers a fallback probe.
+            primary_candidate = (count, captured_at)
+        else:
+            return selected(
+                count, "statistics_api", captured_at=captured_at,
+                stale=overview.get("source_stale") if isinstance(
+                    overview.get("source_stale"), bool
+                ) else None,
+            )
     except ApiError as err:
-        public_error = str(err)
+        errors["statistics_api"] = str(err)
 
+    cloud_error: ApiError | None = None
     try:
         cloud = parse_cloud_data(await api.async_get_cloud_data())
     except ApiError as err:
         cloud_error = err
-        cloud = {
-            "rate_limit": err.rate_limit,
-            "retry_after": err.retry_after,
-        }
+        errors["blockfront_cloud_api"] = str(err)
     else:
-        if online is None:
-            online = cloud["online_count"]
-            source = "blockfront_cloud_api"
+        return selected(
+            cloud["online_count"],
+            "blockfront_cloud_api",
+            rate_limit=cloud["rate_limit"],
+            retry_after=cloud["retry_after"],
+        )
 
-    if online is None:
-        try:
-            official = await api._get_json(
-                "",
-                params={"type": "player_count"},
-                base_url=OFFICIAL_API_BASE_URL,
-                service_name="Official BlockFront API",
-            )
-            online = parse_online_count({"online": official})
-            source = "blockfront_official_api"
-        except ApiError:
-            try:
-                online = await api.async_get_official_online_count()
-                source = "official_website"
-            except ApiError as err:
-                raise ApiError(
-                    "Online player data unavailable from all sources",
-                    status_code=cloud_error.status_code if cloud_error else None,
-                    retry_after=cloud_error.retry_after if cloud_error else None,
-                    rate_limit=cloud_error.rate_limit if cloud_error else None,
-                ) from err
-    return {
-        **cloud,
-        "online_count": online,
-        "source": source,
-        "source_timestamp": source_timestamp,
-        "source_stale": source_stale,
-        "public_api_error": public_error,
-        "polling_status": (
-            "available"
-            if cloud_error is None
-            else "rate_limited"
-            if cloud_error.status_code == 429
-            else "unavailable"
-        ),
-        "api_error": str(cloud_error) if cloud_error else None,
-    }
+    try:
+        official = await api._get_json(
+            "",
+            params={"type": "player_count"},
+            base_url=OFFICIAL_API_BASE_URL,
+            service_name="Official BlockFront API",
+        )
+        official_count = parse_online_count({"online": official})
+    except ApiError as err:
+        errors["blockfront_official_api"] = str(err)
+    else:
+        return selected(official_count, "blockfront_official_api")
+
+    try:
+        website_count = await api.async_get_official_online_count()
+    except ApiError as err:
+        errors["official_website"] = str(err)
+    else:
+        return selected(website_count, "official_website")
+
+    if primary_candidate is not None:
+        # The only valid reading is old; don't discard it or invent a new capture time.
+        return selected(
+            primary_candidate[0], "statistics_api",
+            captured_at=primary_candidate[1], stale=True,
+        )
+
+    raise ApiError(
+        "Online player data unavailable from all sources",
+        status_code=cloud_error.status_code if cloud_error else None,
+        retry_after=cloud_error.retry_after if cloud_error else None,
+        rate_limit=cloud_error.rate_limit if cloud_error else None,
+    )
 
 
 def _rate_limit_headers(headers: Any) -> dict[str, str]:
