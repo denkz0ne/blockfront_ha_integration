@@ -172,3 +172,7 @@ def test_online_sensor_exposes_selected_source_freshness(hass) -> None:
     assert sensor.native_value == 81
     assert sensor.extra_state_attributes["source_freshness"] == "unknown"
     assert sensor.extra_state_attributes["fallback_errors"] == {"statistics_api": "timeout"}
+    assert sensor.extra_state_attributes["online_source"] == "blockfront_official_api"
+    assert sensor.extra_state_attributes["online_source_captured_at"] is None
+    assert sensor.extra_state_attributes["online_is_stale"] is None
+    assert sensor.extra_state_attributes["online_polling_status"] == "available"
