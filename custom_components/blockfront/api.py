@@ -523,7 +523,7 @@ class BlockFrontApi:
         return result
 
     async def async_get_cloud_data(self) -> dict[str, Any]:
-        """Fetch live cloud player totals and per-mode counts directly."""
+        """Fetch the aggregate online-player count and response limit metadata."""
         payload = await self._get_json(
             "cloud_data",
             base_url=CLOUD_API_BASE_URL,
@@ -571,39 +571,23 @@ async def async_fetch_online_data(api: BlockFrontApi) -> dict[str, Any]:
 
 
 def parse_cloud_data(payload: object) -> dict[str, Any]:
-    """Validate the cloud page's player totals and per-mode data."""
+    """Validate the cloud service's aggregate online-player count."""
     if not isinstance(payload, dict):
         raise ApiError("BlockFront cloud API returned an invalid response")
 
     online = payload.get("players_online")
-    counts = payload.get("game_player_count")
     if isinstance(online, bool) or not isinstance(online, int) or online < 0:
         raise ApiError("BlockFront cloud API online player count was missing or invalid")
-    if not isinstance(counts, dict):
-        raise ApiError("BlockFront cloud API game-mode counts were missing or invalid")
-
-    parsed_counts: dict[str, int] = {}
-    for mode, count in counts.items():
-        if (
-            not isinstance(mode, str)
-            or isinstance(count, bool)
-            or not isinstance(count, int)
-            or count < 0
-        ):
-            raise ApiError("BlockFront cloud API returned invalid game-mode counts")
-        parsed_counts[mode] = count
 
     return {
         "online_count": online,
-        "game_player_count": parsed_counts,
-        "scoreboard_reset_time": payload.get("scoreboard_reset_time"),
         "rate_limit": payload.get("_rate_limit", {}),
         "retry_after": payload.get("_retry_after"),
     }
 
 
 async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
-    """Read public online totals and retain the separate live per-mode source."""
+    """Read aggregate online totals from available public sources."""
     online = None
     public_error = None
     cloud_error = None
@@ -623,8 +607,6 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
     except ApiError as err:
         cloud_error = err
         cloud = {
-            "game_player_count": None,
-            "scoreboard_reset_time": None,
             "rate_limit": err.rate_limit,
             "retry_after": err.retry_after,
         }

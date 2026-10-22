@@ -20,7 +20,7 @@ Copy `custom_components/blockfront` into `<Home Assistant config>/custom_compone
 
 Most player and game statistics come from an external community statistics API. Access is currently limited and may be granted by its provider on request. Configure a key only when the provider has explicitly authorized its use with this integration. The key is optional, stored in the Home Assistant config entry, and sent only to that statistics service. Leaving the password field empty in **Configure** keeps the saved key.
 
-Online totals can use alternative sources when the primary request is unavailable. Per-mode online counts use a separate cloud data source. The integration does not change game data.
+The aggregate online total can use alternative sources when the primary request is unavailable. Online counts by game mode are not currently provided. The integration does not change game data.
 
 ## What you get
 

@@ -12,7 +12,7 @@ The integration combines data from an external statistics API with separate onli
 
 ## Game-wide data
 
-- Current online-player totals and mode counts.
+- Current aggregate online-player total.
 - Recorded population trends and map statistics.
 - Selected player, clan and competitive rankings.
 - Statistics-service availability, data freshness and request-limit diagnostics.
@@ -24,7 +24,7 @@ The integration combines data from an external statistics API with separate onli
 - Match history, match analysis and population trends describe recorded samples and may not cover all game activity.
 - Season and ranking values may be absent when the service does not publish them for the player.
 - Ratios are numeric values rounded to two decimal places. Missing values remain unknown rather than becoming zero.
-- Online totals and per-mode counts can come from separate sources and may differ slightly.
+- The aggregate online total can come from separate sources and may differ slightly between snapshots.
 - If a request fails, the integration keeps the last good value and exposes freshness or error details.
 
 ## Polling and limits

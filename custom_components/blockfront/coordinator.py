@@ -85,13 +85,7 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         value = dict(value)
         if self._name == "online":
             previous_value = (self.data or {}).get("value", {})
-            if value.get("game_player_count") is None and isinstance(previous_value, dict):
-                value["game_player_count"] = previous_value.get("game_player_count")
-                value["scoreboard_reset_time"] = previous_value.get("scoreboard_reset_time")
-                value["cloud_last_successful_update"] = previous_value.get(
-                    "cloud_last_successful_update"
-                )
-            elif value.get("polling_status") == "available":
+            if value.get("polling_status") == "available":
                 value["cloud_last_successful_update"] = attempted_at
 
         return {
@@ -221,8 +215,6 @@ def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntime
             {
                 "value": {
                     "online_count": None,
-                    "game_player_count": None,
-                    "scoreboard_reset_time": None,
                     "source": None,
                     "source_timestamp": None,
                     "api_error": None,

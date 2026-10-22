@@ -6,7 +6,7 @@ The integration reads BlockFront statistics from an external API. Access is limi
 
 The key is optional in initial setup and in the integration's **Configure** options. Use it only when the provider has authorized this integration. Home Assistant stores it with the integration entry and sends it only to the statistics service. The key is not included in the repository. Leave the field empty when editing options to retain a previously saved key.
 
-Without an authorized key, personal profile and statistics may be unavailable. Online-player counts may still be obtained from alternative sources, and per-mode counts are handled separately.
+Without an authorized key, personal profile and statistics may be unavailable. The aggregate online-player count may still be obtained from alternative sources.
 
 ## Data groups
 
