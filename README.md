@@ -39,7 +39,7 @@ The integration also includes local rank and skill-rank pictures. Some optional 
 
 A ready-to-paste three-column Home Assistant view is available in [examples/blockfront-dashboard.yaml](examples/blockfront-dashboard.yaml). It groups profile and progression, personal statistics, matches, online population, and trends in a light, compact style.
 
-The example uses entity IDs for the BlockFront username `denkz0ne`; replace that prefix with the entity IDs created for your configured player. It requires the separate HACS frontend cards `button-card` and `apexcharts-card`. Add the file contents as a view in a YAML-mode dashboard.
+The example uses entity IDs for the BlockFront username `denkz0ne`; replace that prefix with the entity IDs created for your configured player. It requires the separate HACS frontend cards `button-card`, `apexcharts-card`, and `tabbed-card`. Add the file contents as a view in a YAML-mode dashboard. Colors follow Home Assistant theme variables. The new activity card shows the selected presence state, collection status and source time; the refresh button's generated entity ID may need the same username-prefix adjustment.
 
 ## Refresh intervals
 
@@ -56,6 +56,14 @@ Each data group can be adjusted independently under **Settings → Devices & ser
 | Game-wide statistics | 60 minutes | 30 minutes |
 
 Polling more often does not make stored game data newer. The integration follows the service's rate-limit instructions and reports the last observed request allowance where available. Other clients using the same key or network may share that allowance.
+
+## Activity-aware collection
+
+Under **Configure**, optionally select a binary sensor or text sensor. A binary sensor uses `on` / `off`; a text sensor is active when its state contains the configured case-insensitive match (default `BlockFront`). A matching active-window title is a probable foreground-game signal, not proof of a live multiplayer match. Unavailable values remain `UNKNOWN` and use a sparse heartbeat. A selected binary sensor that stays off pauses only player-specific polling after the cooldown; online count, global statistics and service health continue on their own schedules. Presence mode can be set to `auto`, `force_active` or `force_idle`. The default cooldown is 30 minutes and the default unknown/idle heartbeat is 60 minutes.
+
+Source-cadence learning observes distinct valid source timestamps and stays within each group's configured interval and minimum. It needs several timestamp changes before adapting; missing, stale or unchanged timestamps keep the conservative configured cadence. A small configurable safety margin helps avoid checking before publication.
+
+The **Refresh all data** button processes profile and recent matches first, then status/population, analytics/history, global rankings and archive data. It runs one coordinator at a time, reports deferred groups and failures, and observes per-group minimum intervals and shared API backoff. For full, untruncated history or inventory, call `blockfront.get_dataset` with any BlockFront `entity_id` and a dataset name. The response returns the latest in-memory value and freshness metadata without recording the full payload in entity attributes.
 
 ## Freshness and troubleshooting
 

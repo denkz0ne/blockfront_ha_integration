@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -55,10 +56,12 @@ class FakeResponse:
         status: int = 200,
         payload: object | None = None,
         text: str = "",
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.status = status
         self._payload = payload
         self._text = text
+        self.headers = headers or {}
 
     async def json(self, *, content_type: str | None = None) -> object:
         return self._payload
@@ -148,6 +151,123 @@ async def test_api_key_is_sent_only_to_configured_statistics_api() -> None:
     assert session.requests[0][1]["headers"]["Authorization"] == "Bearer private-key"
     assert session.requests[1][0].startswith("https://blockfrontapi.vuis.dev/")
     assert "headers" not in session.requests[1][1]
+
+
+@pytest.mark.asyncio
+async def test_identical_inflight_gets_are_coalesced() -> None:
+    session = FakeSession(
+        FakeResponse(payload={"data": {"playersOnline": 3}, "meta": {"stale": False}})
+    )
+    api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL)
+    results = await asyncio.gather(api._get_json("online"), api._get_json("online"))
+    assert results[0] == results[1]
+    assert len(session.requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_etag_304_returns_cached_public_payload() -> None:
+    payload = {"data": {"playersOnline": 3}, "meta": {"stale": False}}
+    session = FakeSession(
+        FakeResponse(payload=payload, headers={"ETag": '"snapshot-1"'}),
+        FakeResponse(status=304),
+    )
+    api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL)
+    first = await api._get_json("online")
+    second = await api._get_json("online")
+    assert second is first
+    assert session.requests[1][1]["headers"]["If-None-Match"] == '"snapshot-1"'
+
+
+@pytest.mark.asyncio
+async def test_archive_data_reads_items_and_timestamp_from_public_envelope() -> None:
+    player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
+    api = BlockFrontApi(
+        FakeSession(
+            FakeResponse(
+                payload={
+                    "data": [{"id": 1}],
+                    "meta": {"stale": False, "updatedAt": "2026-10-22T10:00:00Z"},
+                }
+            ),
+            FakeResponse(
+                payload={
+                    "data": [{"id": 2}],
+                    "meta": {"stale": False, "updatedAt": "2026-10-22T10:01:00Z"},
+                }
+            ),
+        ),
+        api_base_url=TEST_API_BASE_URL,
+    )
+    data = await api.async_get_archive_data(player_uuid)
+    assert data["classes"]["items"] == [{"id": 1}]
+    assert data["inventory"]["items"] == [{"id": 2}]
+    assert data["classes"]["captured_at"] == "2026-10-22T10:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_valid_statistics_online_count_skips_cloud_fallback() -> None:
+    class Api:
+        async def async_get_overview(self) -> dict[str, Any]:
+            return {
+                "online": {"playersOnline": 54},
+                "generatedAt": "capture",
+                "source_stale": False,
+            }
+
+        async def async_get_cloud_data(self) -> dict[str, Any]:
+            raise AssertionError("cloud fallback should not be requested")
+
+        async def _get_json(self, *_: Any, **__: Any) -> dict[str, Any]:
+            raise AssertionError("official fallback should not be requested")
+
+    data = await async_fetch_cloud_data(Api())  # type: ignore[arg-type]
+    assert data["online_count"] == 54
+    assert data["source"] == "statistics_api"
+    assert data["polling_status"] == "available"
+
+
+@pytest.mark.asyncio
+async def test_stale_primary_uses_fresh_cloud_source_truthfully() -> None:
+    class Api:
+        async def async_get_overview(self) -> dict[str, Any]:
+            return {
+                "online": {"playersOnline": 40},
+                "generatedAt": "2026-10-22T08:00:00Z",
+                "source_stale": True,
+            }
+
+        async def async_get_cloud_data(self) -> dict[str, Any]:
+            return {"players_online": 47}
+
+        async def _get_json(self, *_: Any, **__: Any) -> dict[str, Any]:
+            raise AssertionError("fresh cloud source should stop the fallback chain")
+
+    data = await async_fetch_cloud_data(Api())  # type: ignore[arg-type]
+    assert data["online_count"] == 47
+    assert data["source"] == "blockfront_cloud_api"
+    assert data["source_timestamp"] is None
+    assert data["source_stale"] is False
+    assert data["polling_status"] == "available"
+
+
+@pytest.mark.asyncio
+async def test_analytics_returns_successful_siblings_when_one_endpoint_fails() -> None:
+    player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
+    api = BlockFrontApi(
+        FakeSession(
+            FakeResponse(payload={"data": {"trackedMatches": 10}, "meta": {"stale": False}}),
+            FakeResponse(
+                payload={"data": [{"map": "bridge", "games": 3}], "meta": {"stale": False}}
+            ),
+            FakeResponse(status=503),
+        ),
+        api_base_url=TEST_API_BASE_URL,
+    )
+    data = await api.async_get_analytics(player_uuid)
+    assert data["tracked_matches"] == 10
+    assert data["maps"] == [{"map": "bridge", "games": 3}]
+    assert data["modes_error"] == "Statistics API returned HTTP 503"
+    assert data["datasets"]["modes"]["data"] is None
 
 
 @pytest.mark.asyncio
@@ -368,7 +488,7 @@ async def test_online_stale_primary_uses_backup_without_inheriting_timestamp() -
     assert data["online_count"] == 84
     assert data["source"] == "blockfront_cloud_api"
     assert data["source_timestamp"] is None
-    assert data["source_stale"] is None
+    assert data["source_stale"] is False
 
 
 @pytest.mark.asyncio

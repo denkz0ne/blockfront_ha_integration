@@ -33,6 +33,13 @@
           "matches_interval": "Recent matches interval (seconds)",
           "online_interval": "Online players interval (seconds)",
           "status_interval": "Service status interval (seconds)",
+          "activity_entity": "Activity sensor (optional)",
+          "activity_match": "Text that marks the active game window",
+          "activity_cooldown_minutes": "Keep fast polling for minutes after activity",
+          "idle_heartbeat_minutes": "Player data heartbeat while idle or presence is unknown",
+          "adaptive_polling": "Adjust player polling from activity sensor",
+          "adaptive_margin_percent": "Polling safety margin (percent)",
+          "presence_mode": "Presence mode",
           "analytics_interval": "Recorded match analytics interval (seconds)",
           "history_interval": "Personal history and ranks interval (seconds)",
           "archive_interval": "Class XP and inventory archive interval (seconds)",
@@ -45,8 +52,17 @@
     }
   },
   "entity": {
+    "button": {
+      "refresh_all": {"name": "Refresh all data"}
+    },
     "sensor": {
       "kills": {"name": "Kills"},
+      "exp_since_observation": {"name": "XP since last observation"},
+      "kills_since_observation": {"name": "Kills since last observation"},
+      "deaths_since_observation": {"name": "Deaths since last observation"},
+      "total_games_since_observation": {"name": "Matches since last observation"},
+      "time_played_since_observation": {"name": "Play time since last observation"},
+      "head_shots_since_observation": {"name": "Headshots since last observation"},
       "deaths": {"name": "Deaths"},
       "kd_ratio": {"name": "Kill/death ratio"},
       "head_shots": {"name": "Headshots"},
@@ -79,7 +95,7 @@
       "latest_match": {"name": "Latest match"},
       "latest_match_score": {"name": "Latest match score"},
       "online_players": {"name": "Players online"},
-      "cloud_polling_status": {"name": "Online source polling status"},
+      "cloud_polling_status": {"name": "Online data source status"},
       "service_status": {"name": "Statistics service status"},
       "tracked_matches": {"name": "Tracked matches"},
       "recorded_wins": {"name": "Recorded wins"},

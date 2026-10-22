@@ -9,7 +9,7 @@ from typing import Any
 from homeassistant.const import Platform
 
 DOMAIN = "blockfront"
-PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR)
+PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON)
 
 CONF_USERNAME = "username"
 CONF_PLAYER_UUID = "player_uuid"
@@ -24,6 +24,13 @@ OPTION_ANALYTICS_INTERVAL = "analytics_interval"
 OPTION_HISTORY_INTERVAL = "history_interval"
 OPTION_ARCHIVE_INTERVAL = "archive_interval"
 OPTION_GLOBAL_INTERVAL = "global_interval"
+OPTION_ACTIVITY_ENTITY = "activity_entity"
+OPTION_ACTIVITY_MATCH = "activity_match"
+OPTION_ACTIVITY_COOLDOWN = "activity_cooldown_minutes"
+OPTION_IDLE_HEARTBEAT = "idle_heartbeat_minutes"
+OPTION_ADAPTIVE_POLLING = "adaptive_polling"
+OPTION_ADAPTIVE_MARGIN = "adaptive_margin_percent"
+OPTION_PRESENCE_MODE = "presence_mode"
 
 DEFAULT_OPTIONS: dict[str, int | str] = {
     OPTION_ANALYTICS_INTERVAL: 1800,
@@ -34,6 +41,13 @@ DEFAULT_OPTIONS: dict[str, int | str] = {
     OPTION_MATCHES_INTERVAL: 900,
     OPTION_ONLINE_INTERVAL: 300,
     OPTION_STATUS_INTERVAL: 900,
+    OPTION_ACTIVITY_ENTITY: "",
+    OPTION_ACTIVITY_MATCH: "BlockFront",
+    OPTION_ACTIVITY_COOLDOWN: 30,
+    OPTION_IDLE_HEARTBEAT: 60,
+    OPTION_ADAPTIVE_POLLING: True,
+    OPTION_ADAPTIVE_MARGIN: 10,
+    OPTION_PRESENCE_MODE: "auto",
 }
 
 MIN_INTERVALS = {

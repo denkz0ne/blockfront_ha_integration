@@ -12,7 +12,47 @@ sections:
     icon: mdi:account-star
     heading_style: title
     card_mod:
-      style: 'ha-card { color: #243744; --primary-text-color: #243744; --secondary-text-color: #536577; }'
+      style: 'ha-card { color: var(--primary-text-color); --primary-text-color: var(--primary-text-color); --secondary-text-color: var(--secondary-text-color); }'
+  - type: custom:button-card
+    entity: sensor.service_denkz0ne_api_polling_status
+    name: Aktivita a synchronizácia
+    show_icon: false
+    show_state: false
+    show_name: true
+    tap_action: {action: none}
+    styles:
+      card:
+      - padding: 12px
+      - border-radius: 14px
+      - box-shadow: none
+      - border: '1px solid var(--divider-color)'
+      - background: 'var(--card-background-color)'
+      - color: 'var(--primary-text-color)'
+      grid:
+      - grid-template-areas: '"n" "body"'
+      - grid-template-columns: minmax(0, 1fr)
+      - grid-template-rows: min-content min-content
+    triggers_update:
+    - sensor.service_denkz0ne_api_polling_status
+    custom_fields:
+      body: >-
+        [[[ const a=entity?.attributes||{}; const s=a.playing_state||'unknown';
+        const labels={active:'ACTIVE',cooldown:'COOLDOWN',inactive:'INACTIVE',unknown:'UNKNOWN'};
+        const paused=a.personal_collection==='paused'?'Osobné dáta pozastavené':a.personal_collection==='reconciling'?'Čaká sa na nový zdrojový snapshot':'Osobné dáta sa synchronizujú';
+        const fmt=v=>v?new Date(v).toLocaleString('sk-SK',{timeZone:hass.config.time_zone}):'neznáme';
+        const source=fmt(a.personal_source_timestamp),checked=fmt(a.personal_last_http_check),next=a.next_personal_check?fmt(a.next_personal_check):'pozastavené';
+        const global=`Global · zdroj ${fmt(a.global_source_timestamp)} · HTTP ${fmt(a.global_last_http_check)} · ďalší check ${fmt(a.next_global_check)}`;
+        return `<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${labels[s]||'UNKNOWN'} · ${a.presence_confidence||'neznáme'}</b><span>${paused}</span><span>Osobné dáta · zdroj ${source} · HTTP ${checked} · ďalší check ${next}</span><span>${global}</span></div>`; ]]]
+  - type: button
+    entity: button.denkz0ne_refresh_all_data
+    name: Refresh all data
+    icon: mdi:refresh
+    show_state: false
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.denkz0ne_refresh_all_data
   - type: custom:button-card
     entity: sensor.service_denkz0ne_experience
     section_mode: true
@@ -27,9 +67,9 @@ sections:
       - padding: 12px
       - border-radius: 14px
       - box-shadow: none
-      - border: '1px solid #dfe6ed'
-      - background: '#ffffff'
-      - color: '#243744'
+      - border: '1px solid var(--divider-color)'
+      - background: 'var(--card-background-color)'
+      - color: 'var(--primary-text-color)'
       grid:
       - grid-template-areas: '"body"'
       - grid-template-columns: minmax(0, 1fr)
@@ -55,7 +95,7 @@ sections:
         const rank=st('sensor.denkz0ne_rank'), skill=st('sensor.service_denkz0ne_skill_rank');
         const badge = (e,label,bg) => {
           const image=valid(e)&&e.attributes.entity_picture?.startsWith('/api/blockfront/icons/') ? `<img src="${esc(e.attributes.entity_picture)}" alt="" style="width:42px;height:34px;object-fit:contain;image-rendering:pixelated;flex-shrink:0">` : '';
-          return `<div style="display:flex;align-items:center;gap:7px;padding:8px;border-radius:10px;background:${bg};min-width:0">${image}<div style="min-width:0"><div style="font-size:14px;line-height:20px;color:#536577">${label}</div><b style="font-size:16px;line-height:21px;overflow-wrap:anywhere">${valid(e)?esc(e.state):'—'}</b></div></div>`;
+          return `<div style="display:flex;align-items:center;gap:7px;padding:8px;border-radius:10px;background:${bg};min-width:0">${image}<div style="min-width:0"><div style="font-size:14px;line-height:20px;color:var(--secondary-text-color)">${label}</div><b style="font-size:16px;line-height:21px;overflow-wrap:anywhere">${valid(e)?esc(e.state):'—'}</b></div></div>`;
         };
         const xp=valid(entity)?Number(entity.state):NaN;
         const levels=[0,1,1001,3001,6001,10001,16001,23501,32501,43001,55001,69001,85001,103001,123001,145001,169001,195001,223001,253001];
@@ -67,12 +107,12 @@ sections:
           const first=points[0],last=points[points.length-1],xs=points.map(p=>Date.parse(p.capturedAt)),ys=points.map(p=>p.exp);
           const x0=xs[0],dx=xs[xs.length-1]-x0,lo=Math.min(...ys),dy=Math.max(...ys)-lo;
           const coords=points.map((p,i)=>`${(4+(xs[i]-x0)/(dx||1)*96).toFixed(1)},${(38-(p.exp-lo)/(dy||1)*32).toFixed(1)}`).join(' ');
-          spark=`<svg viewBox="0 0 104 44" style="width:104px;height:44px;flex-shrink:0" role="img" aria-label="Vývoj uložených XP"><polyline points="${coords}" fill="none" stroke="#9b82b6" stroke-width="3" stroke-linejoin="round"/></svg>`;
+          spark=`<svg viewBox="0 0 104 44" style="width:104px;height:44px;flex-shrink:0" role="img" aria-label="Vývoj uložených XP"><polyline points="${coords}" fill="none" stroke="var(--primary-color)" stroke-width="3" stroke-linejoin="round"/></svg>`;
           const delta=last.exp-first.exp;
           const date=p=>new Date(p.capturedAt).toLocaleDateString('sk-SK',{timeZone:hass.config.time_zone,day:'numeric',month:'numeric'});
           change=`${delta>0?'+':''}${fmt(delta)} XP · ${date(first)} – ${date(last)}`;
         }
-        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><ha-icon icon="mdi:controller" style="margin:0;--mdc-icon-size:25px;color:#806694"></ha-icon><b style="font-size:26px;letter-spacing:-.5px">denkz0ne</b></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">${badge(rank,'Hodnosť','#edf5f8')}${badge(skill,'Skill rank','#f3eef9')}</div><div style="background:#f6f2fa;border-radius:10px;padding:10px;margin-top:9px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:14px;color:#536577;line-height:20px"><ha-icon icon="mdi:star-four-points-outline" style="margin:0;--mdc-icon-size:17px"></ha-icon> Skúsenosti</div><b style="font-size:32px;line-height:1.25;letter-spacing:-.6px">${Number.isFinite(xp)?fmt(xp):'—'}<span style="font-size:16px;font-weight:500;margin-left:4px">XP</span></b></div>${spark}</div><div style="font-size:14px;color:#536577;line-height:20px;margin-top:3px">${change}</div><div style="display:flex;justify-content:space-between;gap:6px;font-size:14px;line-height:20px;margin:8px 0 5px"><span>Postup hodnosti</span><b>${Number.isFinite(xp)?pct.toLocaleString('sk-SK',{maximumFractionDigits:2})+' %':'—'}</b></div><div role="progressbar" aria-label="Postup hodnosti" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" style="height:7px;background:#e6dfee;border-radius:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#b9a5cf"></div></div><div style="font-size:14px;line-height:20px;color:#536577;margin-top:5px">${Number.isFinite(xp)?(next?`Do ďalšej hodnosti ${fmt(next-xp)} XP`:'Maximum tabuľky hodností'):'XP zatiaľ nie sú dostupné'}</div></div>`;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><ha-icon icon="mdi:controller" style="margin:0;--mdc-icon-size:25px;color:var(--primary-color)"></ha-icon><b style="font-size:26px;letter-spacing:-.5px">denkz0ne</b></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">${badge(rank,'Hodnosť','var(--secondary-background-color)')}${badge(skill,'Skill rank','var(--secondary-background-color)')}</div><div style="background:var(--secondary-background-color);border-radius:10px;padding:10px;margin-top:9px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:14px;color:var(--secondary-text-color);line-height:20px"><ha-icon icon="mdi:star-four-points-outline" style="margin:0;--mdc-icon-size:17px"></ha-icon> Skúsenosti</div><b style="font-size:32px;line-height:1.25;letter-spacing:-.6px">${Number.isFinite(xp)?fmt(xp):'—'}<span style="font-size:16px;font-weight:500;margin-left:4px">XP</span></b></div>${spark}</div><div style="font-size:14px;color:var(--secondary-text-color);line-height:20px;margin-top:3px">${change}</div><div style="display:flex;justify-content:space-between;gap:6px;font-size:14px;line-height:20px;margin:8px 0 5px"><span>Postup hodnosti</span><b>${Number.isFinite(xp)?pct.toLocaleString('sk-SK',{maximumFractionDigits:2})+' %':'—'}</b></div><div role="progressbar" aria-label="Postup hodnosti" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" style="height:7px;background:color-mix(in srgb, var(--primary-color) 12%, var(--card-background-color));border-radius:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--primary-color)"></div></div><div style="font-size:14px;line-height:20px;color:var(--secondary-text-color);margin-top:5px">${Number.isFinite(xp)?(next?`Do ďalšej hodnosti ${fmt(next-xp)} XP`:'Maximum tabuľky hodností'):'XP zatiaľ nie sú dostupné'}</div></div>`;
         ]]]
   - type: custom:button-card
     entity: sensor.denkz0ne_kills
@@ -100,7 +140,7 @@ sections:
       - [sensor.denkz0ne_headshots, Headshoty, '', 0]
       - [sensor.service_denkz0ne_assists, Asistencie, '', 0]
       - [sensor.denkz0ne_time_played, Odohrané, h, 2]
-      tint: '#edf7f0'
+      tint: 'var(--secondary-background-color)'
       size: 32
     custom_fields:
       body: &id002 |-
@@ -126,17 +166,17 @@ sections:
           const icons={kills:'crosshairs',deaths:'skull-outline',kill_death_ratio:'scale-balance',headshots:'target',assists:'handshake-outline',time_played:'clock-outline',matches_played:'controller',captures:'flag-outline',objective_score:'bullseye-arrow',highest_kill_streak:'fire',highest_death_streak:'skull',prestige:'star-outline',first_bloods:'water',no_scopes:'crosshairs-off',headshot_kill_ratio:'target',healing_assists:'medical-bag',bot_kills:'robot-outline',infected_kills:'biohazard',vehicle_kills:'tank',fire_kills:'fire',back_stabs:'knife-military',infected_rounds_won:'trophy-outline',infected_matches_won:'trophy',match_karma:'heart-outline',tracked_matches:'clipboard-list-outline',recorded_wins:'trophy-outline',recorded_losses:'close-circle-outline',recorded_win_rate:'percent',average_recorded_match_score:'counter','@map':'map-outline'};
           const suffix=id.replace(/^sensor\.(service_)?denkz0ne_/,''), icon=icons[suffix]||'chart-box-outline';
           const length=String(text).length+(unit?1:0), size=numeric?Math.max(26,variables.size-(length>5?4:0)):20;
-          return `<div style="padding:8px;border-radius:10px;background:${variables.tint};min-width:0"><div style="font-size:14px;line-height:20px;color:#536577;display:flex;align-items:center;gap:4px"><ha-icon icon="mdi:${icon}" style="margin:0;--mdc-icon-size:17px;flex-shrink:0"></ha-icon><span>${esc(label)}</span></div><div style="font-size:${size}px;font-weight:700;line-height:1.22;letter-spacing:-.6px;margin-top:4px;overflow-wrap:anywhere">${esc(text)}<span style="font-size:14px;font-weight:500;letter-spacing:0;margin-left:3px">${raw !== null ? esc(unit) : ''}</span></div></div>`;
+          return `<div style="padding:8px;border-radius:10px;background:${variables.tint};min-width:0"><div style="font-size:14px;line-height:20px;color:var(--secondary-text-color);display:flex;align-items:center;gap:4px"><ha-icon icon="mdi:${icon}" style="margin:0;--mdc-icon-size:17px;flex-shrink:0"></ha-icon><span>${esc(label)}</span></div><div style="font-size:${size}px;font-weight:700;line-height:1.22;letter-spacing:-.6px;margin-top:4px;overflow-wrap:anywhere">${esc(text)}<span style="font-size:14px;font-weight:500;letter-spacing:0;margin-left:3px">${raw !== null ? esc(unit) : ''}</span></div></div>`;
         }).join('');
-        return `${variables.title ? `<div style="font-size:16px;font-weight:650;margin-bottom:9px">${esc(variables.title)}</div>` : ''}<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">${parts}</div>${variables.note ? `<div style="font-size:14px;color:#536577;margin-top:7px">${esc(variables.note)}</div>` : ''}`;
+        return `${variables.title ? `<div style="font-size:16px;font-weight:650;margin-bottom:9px">${esc(variables.title)}</div>` : ''}<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">${parts}</div>${variables.note ? `<div style="font-size:14px;color:var(--secondary-text-color);margin-top:7px">${esc(variables.note)}</div>` : ''}`;
         ]]]
   - type: custom:tabbed-card
     styles: &id003
-      --mdc-theme-primary: '#806694'
-      --mdc-tab-text-label-color: '#536577'
+      --mdc-theme-primary: 'var(--primary-color)'
+      --mdc-tab-text-label-color: 'var(--secondary-text-color)'
       --mdc-typography-button-font-size: 14px
       --mdc-tab-height: 38px
-      --mdc-theme-surface: '#ffffff'
+      --mdc-theme-surface: 'var(--card-background-color)'
     grid_options: {columns: 12, rows: auto}
     tabs:
     - attributes: {label: Ciele}
@@ -167,7 +207,7 @@ sections:
           - [sensor.service_denkz0ne_highest_kill_streak, Kill streak, '', 0]
           - [sensor.service_denkz0ne_highest_death_streak, Death streak, '', 0]
           - [sensor.denkz0ne_prestige, Prestíž, '', 0]
-          tint: '#f3eef9'
+          tint: 'var(--secondary-background-color)'
           size: 30
         custom_fields:
           body: *id002
@@ -211,7 +251,7 @@ sections:
           - [sensor.service_denkz0ne_infected_rounds_won, Infected · kolá, '', 0]
           - [sensor.service_denkz0ne_infected_matches_won, Infected · výhry, '', 0]
           - [sensor.service_denkz0ne_match_karma, Karma, '', 0, true]
-          tint: '#edf3fa'
+          tint: 'var(--secondary-background-color)'
           size: 30
         custom_fields:
           body: *id002
@@ -231,7 +271,7 @@ sections:
           body: |-
             [[[
             const rows = Array.isArray(entity?.attributes?.history_points) ? [...entity.attributes.history_points].filter(p => Number.isFinite(Date.parse(p.capturedAt))).sort((a,b) => Date.parse(a.capturedAt)-Date.parse(b.capturedAt)) : [];
-            if (rows.length < 2) return '<div style="padding:20px 0;font-size:14px;color:#536577">Zmeny sa zobrazia po dvoch uložených snímkach profilu.</div>';
+            if (rows.length < 2) return '<div style="padding:20px 0;font-size:14px;color:var(--secondary-text-color)">Zmeny sa zobrazia po dvoch uložených snímkach profilu.</div>';
             const first=rows[0], last=rows[rows.length-1];
             const date = p => new Date(p.capturedAt).toLocaleDateString('sk-SK',{timeZone:hass.config.time_zone,day:'2-digit',month:'2-digit'});
             const fields=[['exp','XP',1,''],['kills','Eliminácie',1,''],['totalGames','Zápasy',1,''],['timePlayedSeconds','Odohrané',3600,' h']];
@@ -239,9 +279,9 @@ sections:
               const valid=typeof first[key]==='number' && typeof last[key]==='number';
               const n=valid ? (last[key]-first[key])/divisor : NaN;
               const v=Number.isFinite(n) ? `${n>0?'+':''}${n.toLocaleString('sk-SK',{maximumFractionDigits:divisor===3600?2:0})}${unit}` : '—';
-              return `<div style="padding:8px;border-radius:9px;background:rgba(157,196,179,.16)"><div style="font-size:14px;color:#536577">${label}</div><b style="font-size:25px;line-height:1.4">${v}</b></div>`;
+              return `<div style="padding:8px;border-radius:9px;background:rgba(157,196,179,.16)"><div style="font-size:14px;color:var(--secondary-text-color)">${label}</div><b style="font-size:25px;line-height:1.4">${v}</b></div>`;
             }).join('');
-            return `<div style="font-size:14px;color:#536577;margin-bottom:9px">Zmena ${date(first)} – ${date(last)} · ${rows.length} snímky API</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${tiles}</div><div style="font-size:14px;color:#536577;margin-top:8px">Rozdiel uložených pozorovaní; nie presný denný súčet.</div>`;
+            return `<div style="font-size:14px;color:var(--secondary-text-color);margin-bottom:9px">Zmena ${date(first)} – ${date(last)} · ${rows.length} snímky API</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${tiles}</div><div style="font-size:14px;color:var(--secondary-text-color);margin-top:8px">Rozdiel uložených pozorovaní; nie presný denný súčet.</div>`;
             ]]]
 - type: grid
   cards:
@@ -250,7 +290,7 @@ sections:
     icon: mdi:controller
     heading_style: title
     card_mod:
-      style: 'ha-card { color: #243744; --primary-text-color: #243744; --secondary-text-color: #536577; }'
+      style: 'ha-card { color: var(--primary-text-color); --primary-text-color: var(--primary-text-color); --secondary-text-color: var(--secondary-text-color); }'
   - type: custom:button-card
     entity: sensor.denkz0ne_latest_match
     section_mode: true
@@ -266,16 +306,16 @@ sections:
         [[[
         const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const a=entity?.attributes||{}, known=entity && !['unknown','unavailable',''].includes(entity.state);
-        const title='<div style="font-size:14px;color:#536577;margin-bottom:8px">Posledný zápas</div>';
-        if (!known) return `${title}<div style="display:flex;gap:12px;align-items:center;min-height:94px"><ha-icon icon="mdi:clipboard-clock-outline" style="margin:0;--mdc-icon-size:31px;color:#b5a5cd"></ha-icon><div><b style="font-size:18px">Čaká sa na údaje</b><div style="font-size:14px;line-height:1.5;color:#536577;margin-top:5px">${a.last_error ? 'Zdroj pri poslednej obnove neposkytol zápas.' : 'Záznam zatiaľ nie je dostupný.'}</div></div></div>`;
+        const title='<div style="font-size:14px;color:var(--secondary-text-color);margin-bottom:8px">Posledný zápas</div>';
+        if (!known) return `${title}<div style="display:flex;gap:12px;align-items:center;min-height:94px"><ha-icon icon="mdi:clipboard-clock-outline" style="margin:0;--mdc-icon-size:31px;color:var(--primary-color)"></ha-icon><div><b style="font-size:18px">Čaká sa na údaje</b><div style="font-size:14px;line-height:1.5;color:var(--secondary-text-color);margin-top:5px">${a.last_error ? 'Zdroj pri poslednej obnove neposkytol zápas.' : 'Záznam zatiaľ nie je dostupný.'}</div></div></div>`;
         const result=({win:'Výhra',loss:'Prehra',draw:'Remíza'})[entity.state]||entity.state;
         const color=entity.state==='win'?'rgba(157,196,179,.26)':entity.state==='loss'?'rgba(218,175,184,.25)':'rgba(187,171,213,.2)';
         const modes={dom:'Domination',of:'Offensive',def:'Defusal',tdm:'Team Deathmatch',gg:'Gun Game',ffa:'Free For All',inf:'Infected',ttt:'Trouble Town',boot:'Bootcamp'};
-        const numbers=[['kills','Eliminácie'],['deaths','Úmrtia'],['assists','Asistencie'],['score','Skóre']].map(([k,l])=>`<div><b style="font-size:32px">${typeof a[k]==='number'&&Number.isFinite(a[k])?a[k].toLocaleString('sk-SK'):'—'}</b><div style="font-size:14px;color:#536577">${l}</div></div>`).join('');
+        const numbers=[['kills','Eliminácie'],['deaths','Úmrtia'],['assists','Asistencie'],['score','Skóre']].map(([k,l])=>`<div><b style="font-size:32px">${typeof a[k]==='number'&&Number.isFinite(a[k])?a[k].toLocaleString('sk-SK'):'—'}</b><div style="font-size:14px;color:var(--secondary-text-color)">${l}</div></div>`).join('');
         const t=a.ended_at?new Date(a.ended_at):null;
         const when=t&&Number.isFinite(t.getTime())?t.toLocaleString('sk-SK',{timeZone:hass.config.time_zone,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
         const duration=typeof a.duration_seconds==='number'?`${(a.duration_seconds/60).toFixed(2)} min`:'—';
-        return `${title}<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><b style="font-size:24px;overflow-wrap:anywhere">${esc(a.map||'Neznáma mapa')}</b><span style="font-size:14px;padding:5px 9px;border-radius:8px;background:${color}">${esc(result)}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:13px 0 10px">${numbers}</div><div style="font-size:14px;color:#536577">${esc(modes[a.game]||a.game||'—')} · ${duration} · ${esc(when)}${a.placement!=null?' · #'+esc(a.placement):''}</div>${a.player_team?`<div style="font-size:14px;color:#536577;margin-top:4px">Tvoj tím: ${esc(a.player_team)} · víťaz: ${esc(a.winner_team)}</div>`:''}${a.stale?'': ''}${entity.attributes.stale?'<div style="font-size:14px;margin-top:5px;color:#536577">Posledný dostupný záznam · staršia kópia</div>':''}`;
+        return `${title}<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><b style="font-size:24px;overflow-wrap:anywhere">${esc(a.map||'Neznáma mapa')}</b><span style="font-size:14px;padding:5px 9px;border-radius:8px;background:${color}">${esc(result)}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:13px 0 10px">${numbers}</div><div style="font-size:14px;color:var(--secondary-text-color)">${esc(modes[a.game]||a.game||'—')} · ${duration} · ${esc(when)}${a.placement!=null?' · #'+esc(a.placement):''}</div>${a.player_team?`<div style="font-size:14px;color:var(--secondary-text-color);margin-top:4px">Tvoj tím: ${esc(a.player_team)} · víťaz: ${esc(a.winner_team)}</div>`:''}${a.stale?'': ''}${entity.attributes.stale?'<div style="font-size:14px;margin-top:5px;color:var(--secondary-text-color)">Posledný dostupný záznam · staršia kópia</div>':''}`;
         ]]]
   - type: custom:button-card
     entity: sensor.service_denkz0ne_tracked_matches
@@ -303,7 +343,7 @@ sections:
       - [sensor.service_denkz0ne_recorded_win_rate, Úspešnosť, '%', 2]
       - [sensor.service_denkz0ne_average_recorded_match_score, Ø skóre, '', 2]
       - ['@map', Najhranejšia mapa, '', 0]
-      tint: '#fff4e8'
+      tint: 'var(--secondary-background-color)'
       size: 32
       note: Analytická vzorka API · nejde o celú kariéru.
     custom_fields:
@@ -333,20 +373,20 @@ sections:
             const f=(v,d=0)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('sk-SK',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
             const world=variables.collection==='world';
             let rows=entity?.attributes?.[world?'maps':variables.collection];
-            if(!Array.isArray(rows)||!rows.length)return '<div style="font-size:14px;color:#536577;padding:20px 0">Výkon na mapách a v režimoch sa zobrazí po načítaní analytiky.</div>';
+            if(!Array.isArray(rows)||!rows.length)return '<div style="font-size:14px;color:var(--secondary-text-color);padding:20px 0">Výkon na mapách a v režimoch sa zobrazí po načítaní analytiky.</div>';
             let headers, note;
             if(world){
               rows=rows.map(r=>{const m=r.modes?.find(x=>x.mode==='dom')||r.modes?.[0];return {name:r.map,mode:m?.mode,games:m?.matches,allies:m?.teams?.find(t=>t.team==='Allies')?.winRate,axis:m?.teams?.find(t=>t.team==='Axis')?.winRate};});
               headers=['Mapa','Záp.','Spoj. %','Os %'];note='Celá hra · Domination, prípadne prvý dostupný režim.';
             }else{rows=[...rows];headers=[variables.collection==='maps'?'Mapa':'Režim','Záp.','Výhry %','K/D','Ø skóre'];note='Tvoje zachytené zápasy · pomery zaokrúhlené na 2 miesta.';}
             rows.sort((a,b)=>(b.games??-1)-(a.games??-1));
-            const head=headers.map((v,i)=>`<th style="text-align:${i?'right':'left'};padding:6px 3px;border-bottom:1px solid #dfe6ed;font-size:14px;font-weight:600;color:#536577;white-space:nowrap">${v}</th>`).join('');
+            const head=headers.map((v,i)=>`<th style="text-align:${i?'right':'left'};padding:6px 3px;border-bottom:1px solid var(--divider-color);font-size:14px;font-weight:600;color:var(--secondary-text-color);white-space:nowrap">${v}</th>`).join('');
             const body=rows.map((r,i)=>{
               const rate=typeof r.games==='number'&&r.games>0&&typeof r.wins==='number'?100*r.wins/r.games:null;
               const values=world?[f(r.games),f(typeof r.allies==='number'?100*r.allies:null,2),f(typeof r.axis==='number'?100*r.axis:null,2)]:[f(r.games),f(rate,2),f(r.kd,2),f(r.avgScore,2)];
-              return `<tr style="background:${i%2?'rgba(128,128,128,.045)':'transparent'}"><td style="padding:7px 3px;font-weight:600;max-width:140px;overflow-wrap:anywhere">${esc(r.name||r.mapName||r.key)}${world?`<small style="display:block;font-weight:400;font-size:14px;color:#536577">${esc(r.mode)}</small>`:''}</td>${values.map(v=>`<td style="text-align:right;padding:7px 3px;white-space:nowrap;font-variant-numeric:tabular-nums">${v}</td>`).join('')}</tr>`;
+              return `<tr style="background:${i%2?'rgba(128,128,128,.045)':'transparent'}"><td style="padding:7px 3px;font-weight:600;max-width:140px;overflow-wrap:anywhere">${esc(r.name||r.mapName||r.key)}${world?`<small style="display:block;font-weight:400;font-size:14px;color:var(--secondary-text-color)">${esc(r.mode)}</small>`:''}</td>${values.map(v=>`<td style="text-align:right;padding:7px 3px;white-space:nowrap;font-variant-numeric:tabular-nums">${v}</td>`).join('')}</tr>`;
             }).join('');
-            return `<div style="height:250px;overflow:auto;font-size:14px"><table style="width:100%;border-collapse:collapse"><thead>${head}</thead><tbody>${body}</tbody></table></div><div style="font-size:14px;color:#536577;margin-top:7px">${note}</div>`;
+            return `<div style="height:250px;overflow:auto;font-size:14px"><table style="width:100%;border-collapse:collapse"><thead>${head}</thead><tbody>${body}</tbody></table></div><div style="font-size:14px;color:var(--secondary-text-color);margin-top:7px">${note}</div>`;
             ]]]
     - attributes: {label: Moje režimy}
       card:
@@ -387,7 +427,7 @@ sections:
     icon: mdi:chart-line
     heading_style: title
     card_mod:
-      style: 'ha-card { color: #243744; --primary-text-color: #243744; --secondary-text-color: #536577; }'
+      style: 'ha-card { color: var(--primary-text-color); --primary-text-color: var(--primary-text-color); --secondary-text-color: var(--secondary-text-color); }'
   - type: custom:button-card
     entity: sensor.denkz0ne_players_online
     section_mode: true
@@ -404,7 +444,7 @@ sections:
       body: |-
         [[[
         const n=entity&&!['unknown','unavailable',''].includes(entity.state)?Number(entity.state):NaN;
-        return `<div style="display:flex;align-items:center;justify-content:space-between"><div><b style="font-size:15px">Hráči online</b><div style="font-size:14px;color:#536577;margin-top:3px">Celá hra${entity?.attributes?.stale?' · staršia kópia':''}</div></div><b style="font-size:40px;line-height:1.15;letter-spacing:-1px;color:#243744">${Number.isFinite(n)?n.toLocaleString('sk-SK'):'—'}</b></div>`;
+        return `<div style="display:flex;align-items:center;justify-content:space-between"><div><b style="font-size:15px">Hráči online</b><div style="font-size:14px;color:var(--secondary-text-color);margin-top:3px">Celá hra${entity?.attributes?.stale?' · staršia kópia':''}</div></div><b style="font-size:40px;line-height:1.15;letter-spacing:-1px;color:var(--primary-text-color)">${Number.isFinite(n)?n.toLocaleString('sk-SK'):'—'}</b></div>`;
         ]]]
   - type: custom:tabbed-card
     styles: *id003
@@ -431,7 +471,7 @@ sections:
           theme:
             mode: light
           chart:
-            foreColor: '#536577'
+            foreColor: 'var(--secondary-text-color)'
             fontFamily: Roboto, Arial, sans-serif
             height: 188
             toolbar:
@@ -441,7 +481,7 @@ sections:
             animations:
               enabled: false
           grid:
-            borderColor: '#dfe6ed'
+            borderColor: 'var(--divider-color)'
             strokeDashArray: 3
           dataLabels:
             enabled: false
@@ -463,12 +503,12 @@ sections:
               style:
                 fontSize: 14px
         card_mod: &id006
-          style: 'ha-card { background: #ffffff; color: #243744; --primary-text-color: #243744; --secondary-text-color: #536577;
-            border-radius: 14px; box-shadow: none; border: 1px solid #dfe6ed; } .header { font-size: 16px; }'
+          style: 'ha-card { background: var(--card-background-color); color: var(--primary-text-color); --primary-text-color: var(--primary-text-color); --secondary-text-color: var(--secondary-text-color);
+            border-radius: 14px; box-shadow: none; border: 1px solid var(--divider-color); } .header { font-size: 16px; }'
         series:
         - entity: sensor.service_denkz0ne_recorded_profile_history
           name: Celkové XP
-          color: '#b4a0ce'
+          color: 'var(--primary-color)'
           unit: XP
           data_generator: |-
             return (entity?.attributes?.history_points || [])
@@ -498,7 +538,7 @@ sections:
         series:
         - entity: sensor.service_denkz0ne_recorded_profile_history
           name: Eliminácie
-          color: '#9fc3ad'
+          color: 'var(--success-color, var(--primary-color))'
           unit: ''
           data_generator: |-
             return (entity?.attributes?.history_points || [])
@@ -508,7 +548,7 @@ sections:
               .sort((a,b) => a[0]-b[0]);
         - entity: sensor.service_denkz0ne_recorded_profile_history
           name: Úmrtia
-          color: '#d2a7b2'
+          color: 'var(--error-color, var(--primary-color))'
           unit: ''
           data_generator: |-
             return (entity?.attributes?.history_points || [])
@@ -539,7 +579,7 @@ sections:
         - entity: sensor.service_denkz0ne_online_history_readings
           name: Online
           unit: hráčov
-          color: '#9dbbd3'
+          color: 'var(--info-color, var(--primary-color))'
           curve: straight
           data_generator: |-
             return (entity?.attributes?.points || [])
@@ -570,7 +610,7 @@ sections:
         - entity: sensor.service_denkz0ne_recorded_match_trend_days
           name: Zápasy / deň
           unit: zápasov
-          color: '#b2c4ad'
+          color: 'var(--success-color, var(--primary-color))'
           type: column
           data_generator: |-
             return (entity?.attributes?.daily || [])
@@ -603,13 +643,13 @@ sections:
         const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const when=v=>{const d=v?new Date(v):null;return d&&Number.isFinite(d.getTime())?d.toLocaleString('sk-SK',{timeZone:hass.config.time_zone,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';};
         const labels={online:'V poriadku',degraded:'Obmedzená',available:'Dostupné',rate_limited:'Čaká na limit',unavailable:'Nedostupné',unknown:'—'};
-        const chip=(id,label)=>{const s=state(id)||'unknown',ok=['online','available'].includes(s);return `<span style="font-size:14px;padding:5px 7px;border-radius:7px;background:${ok?'#edf7f0':'#fff4e8'}">${label}: <b>${labels[s]||esc(s)}</b></span>`;};
+        const chip=(id,label)=>{const s=state(id)||'unknown',ok=['online','available'].includes(s);return `<span style="font-size:14px;padding:5px 7px;border-radius:7px;background:${ok?'var(--secondary-background-color)':'var(--secondary-background-color)'}">${label}: <b>${labels[s]||esc(s)}</b></span>`;};
         const p=attrs('sensor.service_denkz0ne_experience'),h=attrs('sensor.service_denkz0ne_recorded_competitive_rank'),a=attrs('sensor.service_denkz0ne_most_played_map'),q=entity?.attributes||{};
         const observations=Array.isArray(h.rank_history)?h.rank_history:[],last=observations[observations.length-1];
         const number=v=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('sk-SK',{maximumFractionDigits:2}):'—';
         const limit=number(q.api_rate_limit_limit),remaining=number(q.api_rate_limit_remaining),retry=number(q.api_retry_after);
         const dateRow=(label,value)=>`<div style="display:flex;justify-content:space-between;gap:8px;line-height:22px"><span>${label}</span><b style="text-align:right">${when(value)}</b></div>`;
         const warning=p.stale||p.source_stale||q.stale||q.source_stale;
-        return `<div style="font-size:16px;font-weight:650;display:flex;gap:6px;align-items:center;margin-bottom:10px"><ha-icon icon="mdi:database-clock-outline" style="margin:0;--mdc-icon-size:20px;color:#547897;margin:0"></ha-icon>Čerstvosť a dostupnosť</div><div style="display:flex;flex-wrap:wrap;gap:5px">${chip('sensor.denkz0ne_statistics_service_status','Služba')}${chip('sensor.service_denkz0ne_statistics_api_polling_status','API')}${chip('sensor.service_denkz0ne_cloud_api_polling_status','Online')}</div><div style="display:grid;grid-template-columns:1fr;gap:3px;margin-top:12px;font-size:14px;color:#536577">${dateRow('Profil · snímka API',p.source_timestamp)}${dateRow('Skill · pozorovaný',last?.observedAt)}${dateRow('Analytika · snímka API',a.source_timestamp)}${dateRow('Profil · úspešne načítaný',p.last_successful_update)}</div>${warning?'<div style="font-size:14px;line-height:21px;padding:7px 9px;margin-top:9px;background:#fff4e8;border-radius:8px">Niektoré údaje sú zo staršej dostupnej kópie.</div>':''}<div style="border-top:1px solid #dfe6ed;margin-top:12px;padding-top:12px"><div style="font-size:16px;font-weight:650;display:flex;align-items:center;gap:6px;margin-bottom:9px"><ha-icon icon="mdi:api" style="margin:0;--mdc-icon-size:20px;margin:0;color:#806694"></ha-icon>Podrobnosti a limit API</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="padding:9px;background:#f3eef9;border-radius:10px"><div style="font-size:14px;line-height:20px;color:#536577">Zostávajúca kapacita</div><b style="font-size:30px;line-height:1.3">${remaining}<span style="font-size:17px;font-weight:500"> / ${limit}</span></b></div><div style="padding:9px;background:#edf3fa;border-radius:10px"><div style="font-size:14px;line-height:20px;color:#536577">Čakanie po limite</div><b style="font-size:30px;line-height:1.3">${retry}<span style="font-size:17px;font-weight:500"> s</span></b></div></div><div style="font-size:14px;color:#536577;margin-top:9px">${dateRow('Obnovenie kapacity v odpovedi',q.api_rate_limit_reset_at)}${dateRow('API · posledná odpoveď',q.api_last_successful_update||q.last_successful_update)}</div><div style="font-size:14px;line-height:21px;color:#536577;margin-top:8px">Kapacita je z poslednej odpovede API, nie denný limit. Čas načítania nie je čas zmeny v hre.</div>${q.api_last_error?`<div style="font-size:14px;line-height:21px;margin-top:8px;padding:8px;background:#fff4e8;border-radius:8px;overflow-wrap:anywhere">API: ${esc(q.api_last_error)}</div>`:''}</div>`;
+        return `<div style="font-size:16px;font-weight:650;display:flex;gap:6px;align-items:center;margin-bottom:10px"><ha-icon icon="mdi:database-clock-outline" style="margin:0;--mdc-icon-size:20px;color:var(--info-color, var(--primary-color));margin:0"></ha-icon>Čerstvosť a dostupnosť</div><div style="display:flex;flex-wrap:wrap;gap:5px">${chip('sensor.denkz0ne_statistics_service_status','Služba')}${chip('sensor.service_denkz0ne_statistics_api_polling_status','API')}${chip('sensor.service_denkz0ne_cloud_api_polling_status','Online')}</div><div style="display:grid;grid-template-columns:1fr;gap:3px;margin-top:12px;font-size:14px;color:var(--secondary-text-color)">${dateRow('Profil · snímka API',p.source_timestamp)}${dateRow('Skill · pozorovaný',last?.observedAt)}${dateRow('Analytika · snímka API',a.source_timestamp)}${dateRow('Profil · úspešne načítaný',p.last_successful_update)}</div>${warning?'<div style="font-size:14px;line-height:21px;padding:7px 9px;margin-top:9px;background:var(--secondary-background-color);border-radius:8px">Niektoré údaje sú zo staršej dostupnej kópie.</div>':''}<div style="border-top:1px solid var(--divider-color);margin-top:12px;padding-top:12px"><div style="font-size:16px;font-weight:650;display:flex;align-items:center;gap:6px;margin-bottom:9px"><ha-icon icon="mdi:api" style="margin:0;--mdc-icon-size:20px;margin:0;color:var(--primary-color)"></ha-icon>Podrobnosti a limit API</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="padding:9px;background:var(--secondary-background-color);border-radius:10px"><div style="font-size:14px;line-height:20px;color:var(--secondary-text-color)">Zostávajúca kapacita</div><b style="font-size:30px;line-height:1.3">${remaining}<span style="font-size:17px;font-weight:500"> / ${limit}</span></b></div><div style="padding:9px;background:var(--secondary-background-color);border-radius:10px"><div style="font-size:14px;line-height:20px;color:var(--secondary-text-color)">Čakanie po limite</div><b style="font-size:30px;line-height:1.3">${retry}<span style="font-size:17px;font-weight:500"> s</span></b></div></div><div style="font-size:14px;color:var(--secondary-text-color);margin-top:9px">${dateRow('Obnovenie kapacity v odpovedi',q.api_rate_limit_reset_at)}${dateRow('API · posledná odpoveď',q.api_last_successful_update||q.last_successful_update)}</div><div style="font-size:14px;line-height:21px;color:var(--secondary-text-color);margin-top:8px">Kapacita je z poslednej odpovede API, nie denný limit. Čas načítania nie je čas zmeny v hre.</div>${q.api_last_error?`<div style="font-size:14px;line-height:21px;margin-top:8px;padding:8px;background:var(--secondary-background-color);border-radius:8px;overflow-wrap:anywhere">API: ${esc(q.api_last_error)}</div>`:''}</div>`;
         ]]]
 cards: []

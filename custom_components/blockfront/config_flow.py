@@ -21,6 +21,13 @@ from .const import (
     DOMAIN,
     MAX_INTERVAL_SECONDS,
     MIN_INTERVALS,
+    OPTION_ACTIVITY_COOLDOWN,
+    OPTION_ACTIVITY_ENTITY,
+    OPTION_ACTIVITY_MATCH,
+    OPTION_ADAPTIVE_MARGIN,
+    OPTION_ADAPTIVE_POLLING,
+    OPTION_IDLE_HEARTBEAT,
+    OPTION_PRESENCE_MODE,
 )
 
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
@@ -126,11 +133,68 @@ class BlockFrontOptionsFlow(OptionsFlow):
             ),
         }
         for key, default in DEFAULT_OPTIONS.items():
+            if key in {
+                OPTION_ACTIVITY_ENTITY,
+                OPTION_ACTIVITY_MATCH,
+                OPTION_ACTIVITY_COOLDOWN,
+                OPTION_IDLE_HEARTBEAT,
+                OPTION_ADAPTIVE_POLLING,
+                OPTION_ADAPTIVE_MARGIN,
+                OPTION_PRESENCE_MODE,
+            }:
+                continue
             saved_value = self.config_entry.options.get(key, default)
             schema[vol.Required(key, default=saved_value)] = vol.All(
                 vol.Coerce(int),
                 vol.Range(min=MIN_INTERVALS[key], max=MAX_INTERVAL_SECONDS),
             )
+        entity_default = self.config_entry.options.get(OPTION_ACTIVITY_ENTITY, "")
+        activity_selector = vol.Any(
+            "",
+            selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor", "binary_sensor"])
+            ),
+        )
+        if entity_default:
+            schema[vol.Optional(OPTION_ACTIVITY_ENTITY, default=entity_default)] = activity_selector
+        else:
+            schema[vol.Optional(OPTION_ACTIVITY_ENTITY, default="")] = activity_selector
+        schema[vol.Optional(OPTION_ACTIVITY_MATCH, default="BlockFront")] = str
+        schema[
+            vol.Required(
+                OPTION_ACTIVITY_COOLDOWN,
+                default=self.config_entry.options.get(OPTION_ACTIVITY_COOLDOWN, 30),
+            )
+        ] = vol.All(vol.Coerce(int), vol.Range(min=0, max=240))
+        schema[
+            vol.Required(
+                OPTION_IDLE_HEARTBEAT,
+                default=self.config_entry.options.get(OPTION_IDLE_HEARTBEAT, 60),
+            )
+        ] = vol.All(vol.Coerce(int), vol.Range(min=15, max=360))
+        schema[
+            vol.Required(
+                OPTION_ADAPTIVE_POLLING,
+                default=self.config_entry.options.get(OPTION_ADAPTIVE_POLLING, True),
+            )
+        ] = selector.BooleanSelector()
+        schema[
+            vol.Required(
+                OPTION_ADAPTIVE_MARGIN,
+                default=self.config_entry.options.get(OPTION_ADAPTIVE_MARGIN, 10),
+            )
+        ] = vol.All(vol.Coerce(int), vol.Range(min=0, max=50))
+        schema[
+            vol.Required(
+                OPTION_PRESENCE_MODE,
+                default=self.config_entry.options.get(OPTION_PRESENCE_MODE, "auto"),
+            )
+        ] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["auto", "force_active", "force_idle"],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        )
         return vol.Schema(schema)
 
 

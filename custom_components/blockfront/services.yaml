@@ -1,0 +1,26 @@
+get_dataset:
+  name: Get full dataset
+  description: Return the latest in-memory dataset without adding its full payload to Recorder state attributes.
+  fields:
+    entity_id:
+      name: BlockFront entity
+      description: Any entity belonging to the configured BlockFront player.
+      required: true
+      selector:
+        entity:
+          integration: blockfront
+    dataset:
+      name: Dataset
+      description: Data group to retrieve.
+      required: true
+      selector:
+        select:
+          options:
+            - profile
+            - matches
+            - analytics
+            - history
+            - archive
+            - global
+            - online
+            - status

@@ -38,9 +38,7 @@ async def async_setup_entry(
     )
 
 
-class BlockFrontBinarySensor(
-    CoordinatorEntity[BlockFrontCoordinator], BinarySensorEntity
-):
+class BlockFrontBinarySensor(CoordinatorEntity[BlockFrontCoordinator], BinarySensorEntity):
     """Represent a boolean BlockFront profile field."""
 
     entity_description: BinarySensorEntityDescription
