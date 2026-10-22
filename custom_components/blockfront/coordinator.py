@@ -14,7 +14,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import ApiError, BlockFrontApi, async_fetch_cloud_data, parse_service_status
-from .const import CONF_BLOCKLYTICS_API_KEY, DOMAIN, get_update_interval
+from .const import CONF_API_BASE_URL, CONF_API_KEY, DOMAIN, get_update_interval
 
 _LOGGER = logging.getLogger(__name__)
 type Fetcher = Callable[[], Awaitable[dict[str, Any]]]
@@ -84,7 +84,6 @@ class BlockFrontCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         value = dict(value)
         if self._name == "online":
-            previous_value = (self.data or {}).get("value", {})
             if value.get("polling_status") == "available":
                 value["cloud_last_successful_update"] = attempted_at
 
@@ -111,11 +110,10 @@ type BlockFrontConfigEntry = ConfigEntry[BlockFrontRuntimeData]
 
 def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntimeData:
     """Build an API client and independently scheduled data groups."""
-    api_key = entry.options.get(CONF_BLOCKLYTICS_API_KEY) or entry.data.get(
-        CONF_BLOCKLYTICS_API_KEY
-    )
-    api = BlockFrontApi(async_get_clientsession(hass), api_key=api_key)
     options = dict(entry.options)
+    api_key = options.get(CONF_API_KEY) or entry.data.get(CONF_API_KEY)
+    api_base_url = options.get(CONF_API_BASE_URL) or entry.data.get(CONF_API_BASE_URL)
+    api = BlockFrontApi(async_get_clientsession(hass), api_key=api_key, api_base_url=api_base_url)
 
     async def fetch_profile() -> dict[str, Any]:
         return await api.async_get_player(entry.data["player_uuid"])

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
@@ -35,6 +36,29 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             ]
         )
         domain_data["static_paths_registered"] = True
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate saved API-key field names without retaining provider branding."""
+    data = dict(entry.data)
+    options = dict(entry.options)
+    legacy_keys = {
+        key
+        for store in (data, options)
+        for key in store
+        if key.endswith("_api_key") and key != "api_key"
+    }
+    if "api_key" not in options and "api_key" not in data:
+        for store in (options, data):
+            legacy_key = next((key for key in legacy_keys if key in store), None)
+            if legacy_key is not None:
+                store["api_key"] = store[legacy_key]
+                break
+    for store in (data, options):
+        for key in legacy_keys:
+            store.pop(key, None)
+    hass.config_entries.async_update_entry(entry, data=data, options=options, version=2)
     return True
 
 

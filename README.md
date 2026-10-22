@@ -10,7 +10,9 @@ A custom Home Assistant integration for your BlockFront profile, match history, 
 2. Add `https://github.com/denkz0ne/blockfront_ha_integration` as an **Integration**.
 3. Install **BlockFront Stats** and restart Home Assistant when prompted.
 4. Open **Settings → Devices & services → Add integration** and select **BlockFront Stats**.
-5. Enter your BlockFront username. Enter an API key only if its provider has authorized this use.
+5. Enter your BlockFront username and the statistics API base URL provided for your access. Enter an API key only if its use has been authorized.
+
+After updating an existing installation, open **Configure** and enter the statistics API base URL. The saved API key is migrated automatically; an empty key field keeps it.
 
 ### Manual
 
@@ -18,7 +20,7 @@ Copy `custom_components/blockfront` into `<Home Assistant config>/custom_compone
 
 ## Data access
 
-Most player and game statistics come from an external community statistics API. Access is currently limited and may be granted by its provider on request. Configure a key only when the provider has explicitly authorized its use with this integration. The key is optional, stored in the Home Assistant config entry, and sent only to that statistics service. Leaving the password field empty in **Configure** keeps the saved key.
+Most player and game statistics come from a separately configured statistics API. Enter its base URL and, if authorized, its API key in the integration setup or **Configure** options. Home Assistant stores both locally in the config entry; the key is sent only to the configured API. Leaving the password field empty in **Configure** keeps the saved key.
 
 The aggregate online total can use alternative sources when the primary request is unavailable. Online counts by game mode are not currently provided. The integration does not change game data.
 

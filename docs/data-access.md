@@ -1,10 +1,10 @@
 # Data access and configuration
 
-The integration reads BlockFront statistics from an external API. Access is limited and provided on request. Availability and permitted use depend on authorization from the service provider.
+The integration reads BlockFront statistics from a separately configured API. Enter its base URL during setup or in **Configure** options. Availability and permitted use depend on authorization from the service provider. After updating an older installation, configure the base URL once; a saved API key is migrated automatically.
 
 ## API key
 
-The key is optional in initial setup and in the integration's **Configure** options. Use it only when the provider has authorized this integration. Home Assistant stores it with the integration entry and sends it only to the statistics service. The key is not included in the repository. Leave the field empty when editing options to retain a previously saved key.
+The API key is optional in initial setup and in the integration's **Configure** options. Use it only when its provider has authorized this integration. Home Assistant stores the URL and key with the integration entry and sends the key only to the configured statistics API. Neither credential is included in the repository. Leave the key field empty when editing options to retain a previously saved key.
 
 Without an authorized key, personal profile and statistics may be unavailable. The aggregate online-player count may still be obtained from alternative sources.
 

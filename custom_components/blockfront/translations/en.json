@@ -3,15 +3,17 @@
     "step": {
       "user": {
         "title": "Connect a BlockFront player",
-        "description": "Enter the BlockFront username. Add a Blocklytics API key only if this use has been authorized.",
+        "description": "Enter the BlockFront username and the statistics API base URL. Enter an API key only if its use has been authorized.",
         "data": {
           "username": "BlockFront username",
-          "blocklytics_api_key": "Blocklytics API key (if authorized)"
+          "api_base_url": "Statistics API base URL",
+          "api_key": "API key (if authorized)"
         }
       }
     },
     "error": {
       "invalid_username": "Enter a valid Minecraft username (3–16 letters, numbers, or underscores).",
+      "invalid_api_url": "Enter a valid HTTP or HTTPS API base URL without credentials, query, or fragment.",
       "invalid_player": "The BlockFront player could not be found.",
       "cannot_connect": "Could not contact the BlockFront statistics service. Try again later."
     },
@@ -22,10 +24,11 @@
   "options": {
     "step": {
       "init": {
-        "title": "API key and polling intervals",
-        "description": "Enter an API key only if Blocklytics has authorized this use. Leave it empty to keep the saved key. Intervals are independent.",
+        "title": "Statistics API and polling intervals",
+        "description": "Set the statistics API base URL. Leave the key empty to keep the saved key. Intervals are independent.",
         "data": {
-          "blocklytics_api_key": "Blocklytics API key (if authorized)",
+          "api_base_url": "Statistics API base URL",
+          "api_key": "API key (if authorized)",
           "profile_interval": "Player statistics interval (seconds)",
           "matches_interval": "Recent matches interval (seconds)",
           "online_interval": "Online players interval (seconds)",
@@ -35,6 +38,9 @@
           "archive_interval": "Class XP and inventory archive interval (seconds)",
           "global_interval": "Maps, trends, population and leaderboards interval (seconds)"
         }
+      },
+      "error": {
+        "invalid_api_url": "Enter a valid HTTP or HTTPS API base URL without credentials, query, or fragment."
       }
     }
   },

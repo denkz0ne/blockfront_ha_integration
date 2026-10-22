@@ -13,7 +13,8 @@ PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR)
 
 CONF_USERNAME = "username"
 CONF_PLAYER_UUID = "player_uuid"
-CONF_BLOCKLYTICS_API_KEY = "blocklytics_api_key"
+CONF_API_BASE_URL = "api_base_url"
+CONF_API_KEY = "api_key"
 
 OPTION_PROFILE_INTERVAL = "profile_interval"
 OPTION_MATCHES_INTERVAL = "matches_interval"
@@ -25,7 +26,6 @@ OPTION_ARCHIVE_INTERVAL = "archive_interval"
 OPTION_GLOBAL_INTERVAL = "global_interval"
 
 DEFAULT_OPTIONS: dict[str, int | str] = {
-    CONF_BLOCKLYTICS_API_KEY: "",
     OPTION_ANALYTICS_INTERVAL: 1800,
     OPTION_HISTORY_INTERVAL: 3600,
     OPTION_ARCHIVE_INTERVAL: 21600,
