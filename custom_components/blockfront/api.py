@@ -653,7 +653,7 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
             "public_api_error": errors.get("statistics_api"),
             "api_error": errors.get("blockfront_cloud_api"),
             "fallback_errors": dict(errors),
-            "polling_status": "stale" if stale is True else "available",
+            "polling_status": "degraded" if stale is True else "available",
         }
 
     try:
