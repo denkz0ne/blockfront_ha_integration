@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import isfinite
+from types import SimpleNamespace
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -22,6 +24,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_PLAYER_UUID, CONF_USERNAME, DOMAIN
 from .coordinator import BlockFrontConfigEntry, BlockFrontCoordinator
+from .presence import Presence
 
 PARALLEL_UPDATES = 0
 
@@ -575,12 +578,18 @@ async def async_setup_entry(
 ) -> None:
     """Create the sensors for a configured player."""
     async_add_entities(
-        BlockFrontSensor(
-            entry.runtime_data.coordinators[description.coordinator_key],
-            entry,
-            description,
-        )
-        for description in SENSOR_DESCRIPTIONS
+        [
+            BlockFrontSensor(
+                entry.runtime_data.coordinators[description.coordinator_key],
+                entry,
+                description,
+            )
+            for description in SENSOR_DESCRIPTIONS
+        ]
+        + [
+            BlockFrontProgressSensor(entry, key)
+            for key in ("exp", "kills", "deaths", "total_games", "time_played", "head_shots")
+        ]
     )
 
 
@@ -600,10 +609,18 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         player_uuid = entry.data[CONF_PLAYER_UUID]
         self._player_uuid = player_uuid
         self._username = entry.data[CONF_USERNAME]
-        self._api = entry.runtime_data.api if description.key.startswith("api_") else None
-        self._polling_coordinators = (
-            entry.runtime_data.coordinators if self._api is not None else {}
+        runtime = getattr(entry, "runtime_data", None)
+        self._runtime = runtime or SimpleNamespace(
+            presence=Presence.UNKNOWN,
+            presence_entity=None,
+            presence_mode="auto",
+            presence_tracker=None,
+            reconciliation_pending=False,
+            coordinators={"profile": coordinator, "global": coordinator},
+            progression=None,
         )
+        self._api = getattr(runtime, "api", None) if description.key.startswith("api_") else None
+        self._polling_coordinators = runtime.coordinators if self._api is not None else {}
         self._attr_unique_id = f"{player_uuid}_{description.key}"
         self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
@@ -763,15 +780,106 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
         attributes: dict[str, Any] = {
             "last_successful_update": coordinator_data.get("last_successful_update"),
             "last_attempt": coordinator_data.get("last_attempt"),
+            "last_successful_http_check": coordinator_data.get("last_successful_update"),
             "stale": coordinator_data.get("stale", True),
             "last_error": coordinator_data.get("last_error"),
+            "playing_state": self._runtime.presence.value,
+            "presence_source": self._runtime.presence_entity
+            or ("manual_override" if self._runtime.presence_mode != "auto" else None),
+            "presence_mode": self._runtime.presence_mode,
+            "presence_confidence": (
+                "manual_override"
+                if self._runtime.presence_mode != "auto"
+                else "configured_binary_signal"
+                if self._runtime.presence_entity
+                and self._runtime.presence_entity.startswith("binary_sensor.")
+                else "probable_active_window"
+                if self._runtime.presence_entity
+                else "unknown_no_presence_signal"
+            ),
+            "last_activity_observed": (
+                self._runtime.presence_tracker.last_active.isoformat()
+                if self._runtime.presence_tracker and self._runtime.presence_tracker.last_active
+                else None
+            ),
+            "personal_collection": "reconciling"
+            if self._runtime.reconciliation_pending
+            else "paused"
+            if self._runtime.presence.value == "inactive"
+            and self.coordinator.update_interval is None
+            else "running",
+            "next_personal_check": (
+                (
+                    datetime.fromisoformat(coordinator_data["last_attempt"])
+                    + self.coordinator.update_interval
+                ).isoformat()
+                if self.entity_description.coordinator_key
+                in {"profile", "matches", "analytics", "history", "archive"}
+                and isinstance(coordinator_data.get("last_attempt"), str)
+                and self.coordinator.update_interval is not None
+                else None
+            ),
         }
         if self._api is not None:
             polling = self._api.polling_data()
+            profile_coordinator = self._runtime.coordinators["profile"]
+            profile_data = (profile_coordinator.data or {}).get("value", {})
+            attributes["personal_source_timestamp"] = (
+                profile_data.get("source_timestamp") if isinstance(profile_data, dict) else None
+            )
+            attributes["personal_last_http_check"] = (
+                getattr(profile_coordinator, "last_successful_check_at", None).isoformat()
+                if getattr(profile_coordinator, "last_successful_check_at", None)
+                else None
+            )
+            attributes["next_personal_check"] = (
+                (
+                    profile_coordinator.last_attempt_at + profile_coordinator.update_interval
+                ).isoformat()
+                if getattr(profile_coordinator, "last_attempt_at", None)
+                and profile_coordinator.update_interval
+                else None
+            )
+            attributes["personal_collection"] = (
+                "reconciling"
+                if self._runtime.reconciliation_pending
+                else "paused"
+                if profile_coordinator.update_interval is None
+                else "running"
+            )
+            global_coordinator = self._runtime.coordinators["global"]
+            global_data = (global_coordinator.data or {}).get("value", {})
+            global_datasets = (
+                global_data.get("datasets", {}) if isinstance(global_data, dict) else {}
+            )
+            timestamps = (
+                [
+                    item.get("source_timestamp")
+                    for item in global_datasets.values()
+                    if isinstance(item, dict) and isinstance(item.get("source_timestamp"), str)
+                ]
+                if isinstance(global_datasets, dict)
+                else []
+            )
+            attributes["global_source_timestamp"] = max(timestamps, default=None)
+            attributes["global_last_http_check"] = (
+                getattr(global_coordinator, "last_successful_check_at", None).isoformat()
+                if getattr(global_coordinator, "last_successful_check_at", None)
+                else None
+            )
+            attributes["next_global_check"] = (
+                (
+                    global_coordinator.last_attempt_at + global_coordinator.update_interval
+                ).isoformat()
+                if getattr(global_coordinator, "last_attempt_at", None)
+                and global_coordinator.update_interval
+                else None
+            )
             attributes.update(
                 {
                     "last_successful_update": polling.get("api_last_successful_update"),
                     "last_attempt": polling.get("api_last_attempt"),
+                    "last_successful_http_check": polling.get("api_last_successful_update"),
                     "last_error": polling.get("api_last_error"),
                     "stale": polling.get("api_polling_status") != "available",
                 }
@@ -946,18 +1054,18 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             attributes.update(
                 {
                     "source": value.get("source"),
-                    "source_timestamp": value.get("source_timestamp"),
-                    "source_freshness": value.get("source_freshness"),
-                    "fallback_errors": value.get("fallback_errors"),
-                    "api_error": value.get("api_error"),
-                    "public_api_error": value.get("public_api_error"),
-                    "online_polling_status": value.get("polling_status"),
                     "online_source": value.get("source"),
+                    "source_timestamp": value.get("source_timestamp"),
                     "online_source_captured_at": value.get("source_timestamp"),
                     "online_is_stale": value.get("source_stale"),
-                    "online_last_successful_update": value.get("online_last_successful_update"),
+                    "online_polling_status": value.get("polling_status"),
+                    "api_error": value.get("api_error"),
+                    "public_api_error": value.get("public_api_error"),
+                    "source_freshness": value.get("source_freshness"),
+                    "fallback_errors": value.get("fallback_errors"),
+                    "source_errors": value.get("source_errors"),
                     "cloud_polling_status": value.get("polling_status"),
-                    "cloud_stale": value.get("polling_status") != "available",
+                    "cloud_stale": value.get("source_stale", True),
                     "cloud_last_successful_update": value.get("cloud_last_successful_update"),
                     "cloud_retry_after": value.get("retry_after"),
                     "cloud_rate_limit_limit": _rate_limit_value(
@@ -987,6 +1095,7 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
             if self.entity_description.key == "most_played_map":
                 attributes["maps"] = _round_rows(value.get("maps"))
                 attributes["modes"] = _round_rows(value.get("modes"))
+                attributes["datasets"] = value.get("datasets")
         elif key == "status":
             polling = self._api.polling_data() if self._api is not None else value
             attributes.update({k: v for k, v in polling.items() if k.startswith("api_")})
@@ -1002,7 +1111,49 @@ class BlockFrontSensor(CoordinatorEntity[BlockFrontCoordinator], SensorEntity):
                     "upstream_error": value.get("upstream_error"),
                 }
             )
-        return attributes
+        return _bound_attributes(attributes)
+
+
+class BlockFrontProgressSensor(SensorEntity):
+    """Expose a cumulative counter delta between distinct source snapshots."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, entry: BlockFrontConfigEntry, counter: str) -> None:
+        self._entry = entry
+        self._counter = counter
+        self._attr_unique_id = f"{entry.data[CONF_PLAYER_UUID]}_{counter}_since_observation"
+        self._attr_translation_key = f"{counter}_since_observation"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.data[CONF_PLAYER_UUID])},
+            name=entry.data[CONF_USERNAME],
+            manufacturer="BlockFront",
+            model="Player statistics",
+        )
+
+    async def async_added_to_hass(self) -> None:
+        """Update delta sensors with profile snapshot changes."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self._entry.runtime_data.coordinators["profile"].async_add_listener(
+                self.async_write_ha_state
+            )
+        )
+
+    @property
+    def native_value(self) -> int | float | None:
+        """Return the last distinct source snapshot delta, when known."""
+        return (self._entry.runtime_data.progression or {}).get(self._counter)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Label deltas with their actual observation interval."""
+        value = (self._entry.runtime_data.coordinators["profile"].data or {}).get("value", {})
+        return {
+            "delta_window": "since_last_distinct_source_observation",
+            "source_timestamp": value.get("source_timestamp") if isinstance(value, dict) else None,
+            "source_stale": value.get("source_stale") if isinstance(value, dict) else None,
+        }
 
 
 def _class_exp_by_id(value: object) -> dict[str, int]:
@@ -1019,6 +1170,50 @@ def _class_exp_by_id(value: object) -> dict[str, int]:
         and not isinstance(item.get("exp"), bool)
         and item["exp"] >= 0
     }
+
+
+def _bound_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+    """Limit recorded list payloads and disclose the untruncated item count."""
+
+    def bound(value: Any) -> Any:
+        if isinstance(value, dict):
+            result: dict[str, Any] = {}
+            for key, item in value.items():
+                if isinstance(item, list) and len(item) > 60:
+                    result[key] = [bound(row) for row in item[-60:]]
+                    result[f"{key}_total"] = len(item)
+                    result[f"{key}_truncated"] = True
+                else:
+                    result[key] = bound(item)
+            return result
+        if isinstance(value, list):
+            return [bound(item) for item in value]
+        return value
+
+    bounded = bound(attributes)
+
+    def shrink_largest(value: Any, path: str = "attributes") -> bool:
+        if isinstance(value, dict):
+            lists = [
+                (key, item)
+                for key, item in value.items()
+                if isinstance(item, list) and len(item) > 5
+            ]
+            if lists:
+                key, rows = max(lists, key=lambda item: len(item[1]))
+                value.setdefault(f"{key}_total", len(rows))
+                value[f"{key}_truncated"] = True
+                value[key] = rows[-max(5, len(rows) // 2) :]
+                return True
+            return any(shrink_largest(item, f"{path}.{key}") for key, item in value.items())
+        if isinstance(value, list):
+            return any(shrink_largest(item, path) for item in value)
+        return False
+
+    while len(json.dumps(bounded, default=str, separators=(",", ":"))) > 12_000:
+        if not shrink_largest(bounded):
+            break
+    return bounded
 
 
 def _rank_image_index(exp: object) -> int | None:

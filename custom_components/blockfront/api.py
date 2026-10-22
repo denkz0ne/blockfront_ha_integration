@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import math
 import re
@@ -14,6 +16,8 @@ from uuid import UUID
 
 import aiohttp
 
+from .request_scheduler import RequestScheduler
+
 OFFICIAL_API_BASE_URL = "https://api.blockfrontmc.com/api/v2/"
 CLOUD_API_BASE_URL = "https://blockfrontapi.vuis.dev/api/v1/"
 OFFICIAL_WEBSITE_URL = "https://www.blockfrontmc.com/"
@@ -22,6 +26,8 @@ REQUEST_TIMEOUT_SECONDS = 15
 _ONLINE_COUNT_PATTERN = re.compile(
     r"(?<![\w-])(\d+)\s+Players\s+Online\s+Now!(?=\s|<|$)", re.IGNORECASE
 )
+_REQUEST_SCHEDULER = RequestScheduler()
+_IN_FLIGHT_REQUESTS: dict[str, asyncio.Task[dict[str, Any]]] = {}
 
 
 class ApiError(Exception):
@@ -76,6 +82,7 @@ class BlockFrontApi:
         timeout: int = REQUEST_TIMEOUT_SECONDS,
         api_key: str | None = None,
         api_base_url: str | None = None,
+        scheduler: RequestScheduler | None = None,
     ) -> None:
         self._session = session
         self._api_key = api_key.strip() if api_key and api_key.strip() else None
@@ -83,6 +90,7 @@ class BlockFrontApi:
             self._api_base_url = normalize_api_base_url(api_base_url or "")
         except ValueError:
             self._api_base_url = None
+        self._scheduler = scheduler or _REQUEST_SCHEDULER
         self._timeout = aiohttp.ClientTimeout(total=timeout)
         self._last_rate_limit: dict[str, str] = {}
         self._last_retry_after: str | None = None
@@ -103,12 +111,50 @@ class BlockFrontApi:
         base_url: str | None = None,
         service_name: str = "Statistics API",
     ) -> dict[str, Any]:
+        """Coalesce identical GETs within the same origin and credential scope."""
+        selected_base = base_url or self._api_base_url
+        if selected_base is None:
+            return await self._async_get_json(
+                path, params=params, base_url=base_url, service_name=service_name
+            )
+        primary = selected_base == self._api_base_url
+        scope_material = f"{selected_base}|{self._api_key if primary else ''}"
+        scope = hashlib.sha256(scope_material.encode()).hexdigest()
+        request_key = hashlib.sha256(
+            f"{scope}|{selected_base}{path}|{urlencode(sorted((params or {}).items()))}".encode()
+        ).hexdigest()
+        task = _IN_FLIGHT_REQUESTS.get(request_key)
+        if task is None:
+            task = asyncio.create_task(
+                self._async_get_json(
+                    path, params=params, base_url=base_url, service_name=service_name
+                )
+            )
+            _IN_FLIGHT_REQUESTS[request_key] = task
+
+            def clear(completed: asyncio.Task[dict[str, Any]]) -> None:
+                if _IN_FLIGHT_REQUESTS.get(request_key) is completed:
+                    _IN_FLIGHT_REQUESTS.pop(request_key, None)
+
+            task.add_done_callback(clear)
+        return await asyncio.shield(task)
+
+    async def _async_get_json(
+        self,
+        path: str,
+        *,
+        params: dict[str, str] | None = None,
+        base_url: str | None = None,
+        service_name: str = "Statistics API",
+    ) -> dict[str, Any]:
         if base_url is None:
             if self._api_base_url is None:
                 raise ApiError("Statistics API base URL is not configured")
             base_url = self._api_base_url
         url = f"{base_url}{path}"
         primary = base_url == self._api_base_url
+        scope_material = f"{base_url}|{self._api_key if primary else ''}"
+        request_scope = hashlib.sha256(scope_material.encode()).hexdigest()
         cache_key = f"{url}?{urlencode(sorted((params or {}).items()))}"
         if primary and self._public_retry_until > monotonic():
             raise ApiError(
@@ -126,10 +172,17 @@ class BlockFrontApi:
             cached = self._etag_cache.get(cache_key)
             if cached is not None:
                 request_headers["If-None-Match"] = cached[0]
-            request_options: dict[str, Any] = {"params": params, "timeout": self._timeout}
+            request_options: dict[str, Any] = {
+                "params": params,
+                "timeout": self._timeout,
+                "allow_redirects": False,
+            }
             if request_headers:
                 request_options["headers"] = request_headers
-            async with self._session.get(url, **request_options) as response:
+            async with (
+                self._scheduler.request(request_scope, priority=_request_priority(path)),
+                self._session.get(url, **request_options) as response,
+            ):
                 headers = getattr(response, "headers", {})
                 rate_limit = _rate_limit_headers(headers)
                 retry_after = headers.get("Retry-After")
@@ -147,14 +200,17 @@ class BlockFrontApi:
                         delay = _retry_seconds(retry_after)
                         delay = delay if delay is not None else (reset or 60)
                         self._public_retry_until = monotonic() + max(delay, 1)
+                        self._scheduler.pause(request_scope, max(delay, 1))
                     elif rate_limit.get("RateLimit-Remaining") == "0" and reset is not None:
                         self._public_retry_until = monotonic() + max(reset, 1)
+                        self._scheduler.pause(request_scope, max(reset, 1))
                 if response.status == 304:
                     if cached is None:
                         raise ApiError(f"{service_name} returned 304 without a cached response")
                     if primary:
                         self.public_last_success = datetime.now(UTC).isoformat()
                         self.public_last_error = None
+                    self._scheduler.successful(request_scope)
                     return cached[1]
                 if response.status == 404:
                     raise ApiError(
@@ -164,6 +220,8 @@ class BlockFrontApi:
                         rate_limit=rate_limit,
                     )
                 if response.status >= 400:
+                    if response.status >= 500:
+                        self._scheduler.transient_failure(request_scope)
                     raise ApiError(
                         f"{service_name} returned HTTP {response.status}",
                         status_code=response.status,
@@ -180,12 +238,15 @@ class BlockFrontApi:
                     _validate_public_response(path, payload)
                 etag = headers.get("ETag")
                 if isinstance(etag, str) and etag:
+                    if len(self._etag_cache) >= 256 and cache_key not in self._etag_cache:
+                        self._etag_cache.pop(next(iter(self._etag_cache)))
                     self._etag_cache[cache_key] = (etag, payload)
         except ApiError as err:
             if primary:
                 self.public_last_error = str(err)
             raise
         except (TimeoutError, aiohttp.ClientError) as err:
+            self._scheduler.transient_failure(request_scope)
             if primary:
                 self.public_last_error = f"Request failed: {err.__class__.__name__}"
             if isinstance(err, TimeoutError):
@@ -195,6 +256,7 @@ class BlockFrontApi:
         if primary:
             self.public_last_success = datetime.now(UTC).isoformat()
             self.public_last_error = None
+        self._scheduler.successful(request_scope)
         return payload
 
     def polling_data(self) -> dict[str, Any]:
@@ -327,11 +389,37 @@ class BlockFrontApi:
     async def async_get_analytics(self, player_uuid: str) -> dict[str, Any]:
         """Fetch recorded-match analytics with map and mode breakdowns."""
         base = f"players/{player_uuid}/analytics"
-        summary, meta = unpack_response(await self._get_json(base), dict)
-        maps, map_meta = unpack_response(await self._get_json(f"{base}/maps"), list)
-        modes, mode_meta = unpack_response(await self._get_json(f"{base}/modes"), list)
-        if any(not isinstance(row, dict) for row in [*maps, *modes]):
-            raise ApiError("Statistics API returned invalid performance rows")
+        errors: dict[str, str | None] = {
+            "summary_error": None,
+            "maps_error": None,
+            "modes_error": None,
+        }
+        summary: dict[str, Any] = {}
+        maps: list[dict[str, Any]] = []
+        modes: list[dict[str, Any]] = []
+        meta: dict[str, Any] = {}
+        map_meta: dict[str, Any] = {}
+        mode_meta: dict[str, Any] = {}
+        for key, path, expected in (
+            ("summary", base, dict),
+            ("maps", f"{base}/maps", list),
+            ("modes", f"{base}/modes", list),
+        ):
+            try:
+                data, response_meta = unpack_response(await self._get_json(path), expected)
+                if isinstance(data, list) and any(not isinstance(row, dict) for row in data):
+                    raise ApiError("Statistics API returned invalid performance rows")
+            except ApiError as err:
+                errors[f"{key}_error"] = str(err)
+                continue
+            if key == "summary":
+                summary, meta = data, response_meta
+            elif key == "maps":
+                maps, map_meta = data, response_meta
+            else:
+                modes, mode_meta = data, response_meta
+        if all(errors.values()):
+            raise ApiError("Statistics API recorded analytics are unavailable")
         # Mode groups partition the recorded sample. Never substitute lifetime totals.
         totals = {}
         for key in ("games", "wins", "losses", "score"):
@@ -366,8 +454,30 @@ class BlockFrontApi:
             "sample_matches": games,
             "computed_at": summary.get("computedAt"),
             "source_timestamp": meta.get("updatedAt"),
-            "source_stale": any(m.get("stale", True) for m in (meta, map_meta, mode_meta)),
+            "source_stale": any(m.get("stale", True) for m in (meta, map_meta, mode_meta))
+            or any(errors.values()),
             "source": "statistics_api",
+            **errors,
+            "datasets": {
+                "summary": {
+                    "data": summary or None,
+                    "source_timestamp": meta.get("updatedAt"),
+                    "source_stale": meta.get("stale", True),
+                    "error": errors["summary_error"],
+                },
+                "maps": {
+                    "data": maps if not errors["maps_error"] else None,
+                    "source_timestamp": map_meta.get("updatedAt"),
+                    "source_stale": map_meta.get("stale", True),
+                    "error": errors["maps_error"],
+                },
+                "modes": {
+                    "data": modes if not errors["modes_error"] else None,
+                    "source_timestamp": mode_meta.get("updatedAt"),
+                    "source_stale": mode_meta.get("stale", True),
+                    "error": errors["modes_error"],
+                },
+            },
         }
 
     async def async_get_player_history(
@@ -473,16 +583,25 @@ class BlockFrontApi:
                         status_code=404,
                     )
 
-                data, meta = unpack_response(await self._get_json(path), dict)
-                items = data.get("items")
+                payload = await self._get_json(path)
+                if isinstance(payload, dict) and isinstance(payload.get("data"), list):
+                    items, meta = unpack_response(payload, list)
+                    data: dict[str, Any] = {}
+                else:
+                    data, meta = unpack_response(payload, dict)
+                    items = data.get("items")
                 if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
                     raise ApiError(f"Statistics API returned invalid {key} archive data")
                 captured_at = data.get("captured_at")
+                if captured_at is None:
+                    captured_at = meta.get("updatedAt")
                 if captured_at is not None and (
                     isinstance(captured_at, bool)
-                    or not isinstance(captured_at, (int, float))
-                    or not math.isfinite(captured_at)
-                    or captured_at < 0
+                    or not isinstance(captured_at, (int, float, str))
+                    or (
+                        isinstance(captured_at, (int, float))
+                        and (not math.isfinite(captured_at) or captured_at < 0)
+                    )
                 ):
                     raise ApiError(f"Statistics API returned an invalid {key} capture timestamp")
 
@@ -683,6 +802,7 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
         return selected(
             cloud["online_count"],
             "blockfront_cloud_api",
+            stale=False if primary_candidate is not None else None,
             rate_limit=cloud["rate_limit"],
             retry_after=cloud["retry_after"],
         )
@@ -733,6 +853,22 @@ def _rate_limit_headers(headers: Any) -> dict[str, str]:
         "X-RateLimit-Reset",
     )
     return {name: str(headers[name]) for name in names if name in headers}
+
+
+def _request_priority(path: str) -> int:
+    """Prioritize fresh online/player data ahead of bulky archive endpoints."""
+    lowered = path.casefold()
+    if lowered.endswith("/classes") or lowered.endswith("/inventory"):
+        return 0
+    if "leaderboards" in lowered or lowered.startswith("trends") or lowered.startswith("maps"):
+        return 1
+    if "/history" in lowered or "analytics" in lowered:
+        return 2
+    if lowered.endswith("/matches") or lowered in {"online", "status"}:
+        return 10
+    if lowered.startswith("players/"):
+        return 8
+    return 4
 
 
 def parse_online_count(payload: object) -> int:
@@ -798,6 +934,7 @@ def unpack_response(payload: object, expected_type: type) -> tuple[Any, dict[str
 
 def _validate_public_response(path: str, payload: dict[str, Any]) -> None:
     """Validate endpoint structure before recording a successful public request."""
+    archive_collection = path.endswith(("/classes", "/inventory"))
     collection = path in {
         "players/search",
         "maps",
@@ -805,8 +942,15 @@ def _validate_public_response(path: str, payload: dict[str, Any]) -> None:
         "leaderboards/clans",
         "leaderboards/competitive",
         "clans",
-    } or path.endswith(("/matches", "/maps", "/modes"))
-    data, _ = unpack_response(payload, list if collection else dict)
+    } or path.endswith(("/matches", "/maps", "/modes", "/classes", "/inventory"))
+    data, _ = unpack_response(
+        payload,
+        (list, dict) if archive_collection else list if collection else dict,
+    )
+    if archive_collection and isinstance(data, dict):
+        if not isinstance(data.get("items"), list):
+            raise ApiError("Statistics API returned invalid archive data")
+        data = data["items"]
     if collection and any(not isinstance(item, dict) for item in data):
         raise ApiError("Statistics API returned invalid collection entries")
     if path == "players/search":

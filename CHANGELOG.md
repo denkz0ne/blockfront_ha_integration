@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-10-22
 
-- Fetch online fallback sources only when the primary count is unavailable or explicitly stale; report the selected source, its capture metadata and actual polling status.
-- Parse optional class XP/inventory archive envelopes correctly, preserve last-good partial archive data and avoid repeated HTTP 404 polling for 24 hours.
-- Add regression tests for fallback ordering, stale data, rate limits and archived response validation.
+- Coordinate and coalesce API requests by origin and credential scope; prioritize profile and match freshness, share quota cooldowns and back off transient failures.
+- Learn conservative polling intervals from distinct source timestamps and retain each successful sibling dataset when another endpoint fails.
+- Add configurable activity-aware personal polling with binary/text sensors, a 30-minute cooldown, idle heartbeat, manual override and a staged refresh button.
+- Preserve distinct-source progression deltas, publish restart-safe `blockfront_new_match` events and expose full datasets through a response-only service.
+- Bound recorded list attributes, suppress unchanged snapshot writes and make the example dashboard activity/freshness-aware and theme-safe.
+- Parse archive response envelopes correctly and skip unused online fallback requests; stale primary counts now yield to fresher sources.
 
 ## 0.4.0 — 2026-10-22
 

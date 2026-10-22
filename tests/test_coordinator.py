@@ -15,9 +15,41 @@ from custom_components.blockfront.const import (
     OPTION_PROFILE_INTERVAL,
     get_update_interval,
 )
-from custom_components.blockfront.coordinator import BlockFrontCoordinator
+from custom_components.blockfront.coordinator import BlockFrontCoordinator, _merge_last_good
 
 PLAYER_UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
+
+
+def test_partial_dataset_error_keeps_prior_good_payload_and_timestamp() -> None:
+    previous = {
+        "global": {"data": [{"name": "old"}], "source_timestamp": "source-time"},
+        "error": None,
+    }
+    current = {"global": {"data": None, "error": "timeout", "source_stale": True}}
+    merged = _merge_last_good(previous, current)
+    assert merged["global"]["data"] == [{"name": "old"}]
+    assert merged["global"]["source_timestamp"] == "source-time"
+    assert merged["global"]["error"] == "timeout"
+
+
+@pytest.mark.asyncio
+async def test_identical_snapshot_keeps_recorder_data_stable(hass) -> None:
+    async def fetch() -> dict:
+        return {"kills": 14}
+
+    coordinator = BlockFrontCoordinator(
+        hass, make_entry(), "profile", timedelta(minutes=5), fetch, {"value": None}
+    )
+    coordinator.data = {
+        "value": {"kills": 14},
+        "updated_at": "2026-10-22T10:00:00+00:00",
+        "last_successful_update": "2026-10-22T10:00:00+00:00",
+        "last_attempt": "2026-10-22T10:00:00+00:00",
+        "stale": False,
+        "last_error": None,
+    }
+    previous = coordinator.data
+    assert await coordinator._async_update_data() is previous
 
 
 def make_entry() -> MockConfigEntry:

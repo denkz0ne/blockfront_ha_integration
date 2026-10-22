@@ -26,6 +26,10 @@ The integration combines data from an external statistics API with separate onli
 - Ratios are numeric values rounded to two decimal places. Missing values remain unknown rather than becoming zero.
 - The aggregate online total can come from separate sources and may differ slightly between snapshots.
 - If a request fails, the integration keeps the last good value and exposes freshness or error details.
+- Activity attributes expose `playing_state`, `presence_source`, confidence, whether personal collection is paused, and the next personal check. `source_timestamp` is the upstream observation marker; it is separate from the HTTP check time.
+- Personal delta sensors are labeled “since last observation.” They compare distinct source snapshots and do not imply an exact daily total. Rank or prestige resets can make an XP delta unknown.
+- Each newly observed match with a stable ID fires `blockfront_new_match` once. The event contains `match_id`, `ended_at`, `map`, `mode`, `score`, and `result`; deduplication survives restarts. Existing matches are seeded on first setup without replay.
+- Large list attributes retain up to 60 recent items and disclose the full count through a companion `*_total` attribute when truncated. This keeps existing dashboard keys while bounding normal Recorder payloads.
 
 ## Polling and limits
 

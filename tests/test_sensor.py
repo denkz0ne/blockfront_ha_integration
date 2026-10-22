@@ -7,9 +7,21 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.blockfront.const import CONF_PLAYER_UUID, CONF_USERNAME, DOMAIN
-from custom_components.blockfront.sensor import SENSOR_DESCRIPTIONS, BlockFrontSensor
+from custom_components.blockfront.sensor import (
+    SENSOR_DESCRIPTIONS,
+    BlockFrontSensor,
+    _bound_attributes,
+)
 
 PLAYER_UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
+
+
+def test_large_history_attributes_are_bounded_with_total_count() -> None:
+    attributes = {"history_points": [{"index": index} for index in range(365)]}
+    bounded = _bound_attributes(attributes)
+    assert len(bounded["history_points"]) == 60
+    assert bounded["history_points_total"] == 365
+    assert bounded["history_points_truncated"] is True
 
 
 def make_entry() -> MockConfigEntry:
