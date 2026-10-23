@@ -27,7 +27,7 @@ async def test_profile_maps_community_fields_to_existing_sensor_keys() -> None:
     assert result["exp"] == 5000
     assert result["source"] == "community_api"
     client._get_json.assert_awaited_once_with(
-        "player_data", params={"uuid": UUID}, base_url=self._base_url,
+        "player_data", params={"uuid": UUID}, base_url=TEST_BASE,
         service_name="Community API",
     )
 
@@ -37,7 +37,7 @@ async def test_matches_reuse_existing_shape() -> None:
     client = AsyncMock()
     match = {"match_id": "id-1", "kills": 15, "deaths": 4, "map": "Caen"}
     client._get_json.return_value = {"player": {"uuid": UUID}, "matches": [match]}
-    result = await CommunityApi(client).async_get_match_data(UUID)
+    result = await CommunityApi(client, TEST_BASE).async_get_match_data(UUID)
     assert result["matches"] == [match]
     assert result["source"] == "community_api"
 
@@ -47,4 +47,4 @@ async def test_malformed_profile_is_not_accepted() -> None:
     client = AsyncMock()
     client._get_json.return_value = {"error": "unavailable"}
     with pytest.raises(ApiError):
-        await CommunityApi(client).async_get_player(UUID)
+        await CommunityApi(client, TEST_BASE).async_get_player(UUID)
