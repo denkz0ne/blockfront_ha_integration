@@ -14,9 +14,11 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import ApiError, BlockFrontApi, async_fetch_cloud_data, parse_service_status
+from .community_api import CommunityApi
 from .const import (
     CONF_API_BASE_URL,
     CONF_API_KEY,
+    DEFAULT_COMMUNITY_API_BASE_URL,
     DOMAIN,
     MIN_INTERVALS,
     OPTION_ACTIVITY_COOLDOWN,
@@ -24,9 +26,8 @@ from .const import (
     OPTION_ACTIVITY_MATCH,
     OPTION_ADAPTIVE_MARGIN,
     OPTION_ADAPTIVE_POLLING,
-    OPTION_IDLE_HEARTBEAT,
-    DEFAULT_COMMUNITY_API_BASE_URL,
     OPTION_COMMUNITY_API_BASE_URL,
+    OPTION_IDLE_HEARTBEAT,
     OPTION_MATCHES_SOURCE,
     OPTION_PRESENCE_MODE,
     OPTION_PROFILE_SOURCE,
@@ -35,7 +36,6 @@ from .const import (
     UPDATE_INTERVALS,
     get_update_interval,
 )
-from .community_api import CommunityApi
 from .polling import PollingPolicy
 from .presence import Presence, PresenceTracker
 
