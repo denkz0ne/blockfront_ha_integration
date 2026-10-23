@@ -20,6 +20,9 @@ from custom_components.blockfront.const import (
     DOMAIN,
     OPTION_ACTIVITY_ENTITY,
     OPTION_COMMUNITY_API_BASE_URL,
+    OPTION_MATCHES_SOURCE,
+    OPTION_PROFILE_SOURCE,
+    SOURCE_COMMUNITY,
 )
 
 PLAYER_UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
@@ -221,6 +224,10 @@ async def test_migrate_entry_renames_legacy_api_key_without_losing_value(hass) -
             CONF_PLAYER_UUID: PLAYER_UUID,
             "legacy_api_key": "saved-secret",
         },
+        options={
+            OPTION_PROFILE_SOURCE: "legacy-provider",
+            OPTION_MATCHES_SOURCE: "legacy-provider",
+        },
         version=1,
     )
     entry.add_to_hass(hass)
@@ -229,4 +236,6 @@ async def test_migrate_entry_renames_legacy_api_key_without_losing_value(hass) -
 
     assert entry.data[CONF_API_KEY] == "saved-secret"
     assert "legacy_api_key" not in entry.data
-    assert entry.version == 2
+    assert entry.version == 3
+    assert entry.options[OPTION_PROFILE_SOURCE] == SOURCE_COMMUNITY
+    assert entry.options[OPTION_MATCHES_SOURCE] == SOURCE_COMMUNITY

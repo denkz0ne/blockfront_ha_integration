@@ -14,7 +14,12 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    OPTION_MATCHES_SOURCE,
+    OPTION_PROFILE_SOURCE,
+    SOURCE_COMMUNITY,
+)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -114,7 +119,9 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for store in (data, options):
         for key in legacy_keys:
             store.pop(key, None)
-    hass.config_entries.async_update_entry(entry, data=data, options=options, version=2)
+    options[OPTION_PROFILE_SOURCE] = SOURCE_COMMUNITY
+    options[OPTION_MATCHES_SOURCE] = SOURCE_COMMUNITY
+    hass.config_entries.async_update_entry(entry, data=data, options=options, version=3)
     return True
 
 
@@ -199,45 +206,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlockFrontConfigEntry) -
             async_track_state_change_event(hass, [runtime.presence_entity], _presence_changed)
         )
 
-    for group in (
-        "profile",
-        "matches",
-        "status",
-        "online",
-        "analytics",
-        "history",
-        "global",
-        "archive",
-    ):
-        coordinator = runtime.coordinators[group]
-        if group in {"profile", "matches", "analytics", "history", "archive"}:
-            if coordinator.update_interval is None:
-                continue
-        await coordinator.async_refresh()
-
     progression = ProgressionStore(hass, entry.unique_id or entry.entry_id)
     await progression.async_load()
-    profile = (runtime.coordinators["profile"].data or {}).get("value", {})
-    matches = (runtime.coordinators["matches"].data or {}).get("value", {}).get("matches", [])
-    if isinstance(profile, dict):
-        if progression.is_new_install:
-            progression.seed_profile(profile)
-            runtime.progression = {key: None for key in COUNTERS}
-        else:
-            runtime.progression = progression.observe_profile(profile)
-    if isinstance(matches, list):
-        if progression.is_new_install:
-            progression.seed_matches(matches)
-        else:
-            await progression.observe_matches(hass, matches)
-    await progression.async_save()
+    profile_baseline_pending = progression.is_new_install
+    matches_baseline_pending = progression.is_new_install
 
     @callback
     def _profile_updated() -> None:
-        current = (runtime.coordinators["profile"].data or {}).get("value", {})
+        nonlocal profile_baseline_pending
+        dataset = runtime.coordinators["profile"].data or {}
+        current = dataset.get("value")
+        if dataset.get("last_error") is not None:
+            return
         if isinstance(current, dict):
-            runtime.progression = progression.observe_profile(current)
-            hass.async_create_task(progression.async_save())
+            if profile_baseline_pending:
+                progression.seed_profile(current)
+                profile_baseline_pending = False
+                runtime.progression = {key: None for key in COUNTERS}
+            else:
+                runtime.progression = progression.observe_profile(current)
+            if not profile_baseline_pending and not matches_baseline_pending:
+                hass.async_create_task(progression.async_save())
         if runtime.presence_entity:
             state = hass.states.get(runtime.presence_entity)
             if state is not None:
@@ -245,16 +234,52 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlockFrontConfigEntry) -
 
     @callback
     def _matches_updated() -> None:
-        current_matches = (
-            (runtime.coordinators["matches"].data or {}).get("value", {}).get("matches", [])
-        )
-        if isinstance(current_matches, list):
-            hass.async_create_task(progression.observe_matches(hass, current_matches))
+        dataset = runtime.coordinators["matches"].data or {}
+        value = dataset.get("value")
+        if dataset.get("last_error") is not None or not isinstance(value, dict):
+            return
+        current_matches = value.get("matches")
+        if not isinstance(current_matches, list):
+            return
+
+        async def _process_matches() -> None:
+            nonlocal matches_baseline_pending
+            if matches_baseline_pending:
+                progression.seed_matches(current_matches)
+                matches_baseline_pending = False
+            else:
+                await progression.observe_matches(hass, current_matches)
+            if not profile_baseline_pending and not matches_baseline_pending:
+                await progression.async_save()
+
+        hass.async_create_task(_process_matches())
 
     entry.async_on_unload(runtime.coordinators["profile"].async_add_listener(_profile_updated))
     entry.async_on_unload(runtime.coordinators["matches"].async_add_listener(_matches_updated))
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    async def _initial_refresh() -> None:
+        for group in (
+            "profile",
+            "matches",
+            "status",
+            "online",
+            "analytics",
+            "history",
+            "global",
+            "archive",
+        ):
+            coordinator = runtime.coordinators[group]
+            if group in {"profile", "matches", "analytics", "history", "archive"}:
+                if coordinator.update_interval is None:
+                    continue
+            await coordinator.async_refresh()
+
+    task = hass.async_create_task(
+        _initial_refresh(), f"{DOMAIN}_{entry.entry_id}_initial_refresh"
+    )
+    entry.async_on_unload(task.cancel)
     return True
 
 

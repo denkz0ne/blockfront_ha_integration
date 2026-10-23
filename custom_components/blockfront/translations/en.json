@@ -66,8 +66,8 @@
           "history_interval": "How often to check personal history and rank snapshots while personal polling is active.",
           "archive_interval": "How often to check optional class XP and inventory snapshots while personal polling is active.",
           "global_interval": "How often to refresh shared game data. This continues even when personal polling is idle.",
-          "profile_source": "Blocklytics remains the default. community API uses an independent BFAPI without creating duplicate entities.",
-          "matches_source": "Select a provider for match history independently.",
+          "profile_source": "Choose the primary source for profile statistics. Community API is the default.",
+          "matches_source": "Choose the source for match history. Community API is the default.",
           "community_api_base_url": "Independent second provider base URL including /api/v1/. Does not change the primary source address."
         }
       }

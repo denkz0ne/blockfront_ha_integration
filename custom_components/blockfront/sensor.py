@@ -915,6 +915,13 @@ class BlockFrontSensor(_PlayerNamedEntity, CoordinatorEntity[BlockFrontCoordinat
         key = self.entity_description.coordinator_key
         if key == "profile":
             attributes["unavailable_fields"] = value.get("unavailable_fields")
+            attributes["supplement_source"] = value.get("supplement_source")
+            attributes["supplemented_fields"] = value.get("supplemented_fields", [])
+            attributes["supplement_error"] = value.get("supplement_error")
+            if value.get("clan_data") is not None:
+                attributes["clan_data"] = value["clan_data"]
+            if value.get("clan_data_error") is not None:
+                attributes["clan_data_error"] = value["clan_data_error"]
             if self.entity_description.key == "match_karma":
                 attributes["supplement_source"] = value.get("supplement_source")
                 attributes["supplement_error"] = value.get("supplement_error")
@@ -1095,6 +1102,10 @@ class BlockFrontSensor(_PlayerNamedEntity, CoordinatorEntity[BlockFrontCoordinat
                         rate_limit, "RateLimit-Reset", "X-RateLimit-Reset"
                     ),
                     "cloud_rate_limit_headers": rate_limit,
+                    "players_by_mode": value.get("mode_player_counts"),
+                    "scoreboard_reset_time": value.get("scoreboard_reset_time"),
+                    "player_score": value.get("player_score"),
+                    "clan_score": value.get("clan_score"),
                 }
             )
             if self.entity_description.key == "cloud_polling_status":
