@@ -42,7 +42,7 @@ _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
 class BlockFrontConfigFlow(ConfigFlow, domain=DOMAIN):
     """Set up one public BlockFront player by username."""
 
-    VERSION = 2
+    VERSION = 3
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         """Ask for a player name, then resolve it to a stable UUID."""
@@ -176,11 +176,14 @@ class BlockFrontOptionsFlow(OptionsFlow):
             schema[
                 vol.Required(
                     source_key,
-                    default=self.config_entry.options.get(source_key, SOURCE_BLOCKLYTICS),
+                    default=self.config_entry.options.get(source_key, SOURCE_COMMUNITY),
                 )
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=[SOURCE_BLOCKLYTICS, SOURCE_COMMUNITY],
+                    options=[
+                        {"value": SOURCE_BLOCKLYTICS, "label": "Primary Statistics API"},
+                        {"value": SOURCE_COMMUNITY, "label": "Community API"},
+                    ],
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             )
