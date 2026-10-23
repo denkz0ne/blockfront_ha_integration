@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from custom_components.blockfront.api import ApiError
-
 from custom_components.blockfront.community_api import CommunityApi
 
 TEST_BASE = "https://community.example.invalid/api/v1/"
