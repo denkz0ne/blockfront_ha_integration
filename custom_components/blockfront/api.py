@@ -807,7 +807,7 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
         official_error = err
         errors["blockfront_official_api"] = str(err)
     else:
-        return selected(official_count, "blockfront_official_api")
+        return selected(official_count, "blockfront_official_api", stale=False)
 
     website_error: ApiError | None = None
     try:
@@ -816,7 +816,7 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
         website_error = err
         errors["official_website"] = str(err)
     else:
-        return selected(website_count, "official_website")
+        return selected(website_count, "official_website", stale=False)
 
     if primary_candidate is not None:
         # The only valid reading is old; don't discard it or invent a new capture time.
