@@ -65,7 +65,7 @@
           "history_interval": "How often to check personal history and rank snapshots while personal polling is active.",
           "archive_interval": "How often to check optional class XP and inventory snapshots while personal polling is active.",
           "global_interval": "How often to refresh shared game data. This continues even when personal polling is idle.",
-          "profile_source": "Blocklytics remains the default. vuis.dev uses an independent BFAPI without creating duplicate entities.",
+          "profile_source": "Blocklytics remains the default. community API uses an independent BFAPI without creating duplicate entities.",
           "matches_source": "Select a provider for match history independently."
         }
       }
