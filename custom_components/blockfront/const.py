@@ -18,7 +18,7 @@ CONF_API_KEY = "api_key"
 OPTION_PROFILE_SOURCE = "profile_source"
 OPTION_MATCHES_SOURCE = "matches_source"
 SOURCE_BLOCKLYTICS = "blocklytics"
-SOURCE_VUIS = "vuis"
+SOURCE_COMMUNITY = "community"
 
 OPTION_PROFILE_INTERVAL = "profile_interval"
 OPTION_MATCHES_INTERVAL = "matches_interval"
