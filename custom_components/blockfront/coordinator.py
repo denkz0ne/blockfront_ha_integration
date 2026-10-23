@@ -31,7 +31,6 @@ from .const import (
     OPTION_MATCHES_SOURCE,
     OPTION_PRESENCE_MODE,
     OPTION_PROFILE_SOURCE,
-    SOURCE_BLOCKLYTICS,
     SOURCE_COMMUNITY,
     UPDATE_INTERVALS,
     get_update_interval,
@@ -224,12 +223,39 @@ def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntime
     )
 
     async def fetch_profile() -> dict[str, Any]:
-        if options.get(OPTION_PROFILE_SOURCE, SOURCE_BLOCKLYTICS) == SOURCE_COMMUNITY:
-            return await community.async_get_player(entry.data["player_uuid"])
+        if options.get(OPTION_PROFILE_SOURCE, SOURCE_COMMUNITY) == SOURCE_COMMUNITY:
+            profile = await community.async_get_player(entry.data["player_uuid"])
+            # The Community API is authoritative for its profile fields, but it
+            # currently omits a few personal metrics available from the
+            # separately configured statistics source. Fill only missing
+            # values, never overwrite a Community API value.
+            supplemental_fields = ("skill_rank", "captures", "objective_score")
+            missing_fields = [key for key in supplemental_fields if profile.get(key) is None]
+            if missing_fields:
+                try:
+                    supplemental = await api.async_get_player(entry.data["player_uuid"])
+                except ApiError as err:
+                    profile["supplement_error"] = str(err)
+                else:
+                    filled_fields = []
+                    for key in missing_fields:
+                        if supplemental.get(key) is not None:
+                            profile[key] = supplemental[key]
+                            filled_fields.append(key)
+                    if filled_fields:
+                        profile["supplement_source"] = "statistics_api"
+                        profile["supplemented_fields"] = filled_fields
+            clan_uuid = profile.get("clan_uuid")
+            if isinstance(clan_uuid, str) and clan_uuid:
+                try:
+                    profile["clan_data"] = await community.async_get_clan(clan_uuid)
+                except ApiError as err:
+                    profile["clan_data_error"] = str(err)
+            return profile
         return await api.async_get_player(entry.data["player_uuid"])
 
     async def fetch_matches() -> dict[str, Any]:
-        if options.get(OPTION_MATCHES_SOURCE, SOURCE_BLOCKLYTICS) == SOURCE_COMMUNITY:
+        if options.get(OPTION_MATCHES_SOURCE, SOURCE_COMMUNITY) == SOURCE_COMMUNITY:
             return await community.async_get_match_data(entry.data["player_uuid"])
         return await api.async_get_match_data(entry.data["player_uuid"])
 
@@ -252,7 +278,57 @@ def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntime
         )
 
     async def fetch_archive() -> dict[str, Any]:
+        if options.get(OPTION_PROFILE_SOURCE, SOURCE_COMMUNITY) == SOURCE_COMMUNITY:
+            profile_data = (coordinators.get("profile").data or {}).get("value", {})
+            if not isinstance(profile_data, dict):
+                profile_data = await community.async_get_player(entry.data["player_uuid"])
+            return await community.async_get_archive_data(entry.data["player_uuid"], profile_data)
         return await api.async_get_archive_data(entry.data["player_uuid"])
+
+    async def fetch_online() -> dict[str, Any]:
+        try:
+            cloud = await community.async_get_cloud_data()
+        except ApiError as community_error:
+            fallback = await async_fetch_cloud_data(api)
+            fallback["community_api_error"] = str(community_error)
+            fallback["fallback_errors"] = {
+                **fallback.get("fallback_errors", {}),
+                "community_api": str(community_error),
+            }
+            return fallback
+        player_scores = cloud.get("player_scores")
+        player_score = next(
+            (
+                row
+                for row in player_scores
+                if isinstance(row, dict) and row.get("uuid") == entry.data["player_uuid"]
+            ),
+            None,
+        ) if isinstance(player_scores, list) else None
+        profile_value = (coordinators.get("profile").data or {}).get("value", {})
+        clan_uuid = profile_value.get("clan_uuid") if isinstance(profile_value, dict) else None
+        clan_scores = cloud.get("clan_scores")
+        clan_score = next(
+            (
+                row
+                for row in clan_scores
+                if isinstance(row, dict) and row.get("uuid") == clan_uuid
+            ),
+            None,
+        ) if isinstance(clan_scores, list) and isinstance(clan_uuid, str) else None
+        return {
+            "online_count": cloud["players_online"],
+            "mode_player_counts": cloud.get("game_player_count"),
+            "scoreboard_reset_time": cloud.get("scoreboard_reset_time"),
+            "source": "community_api",
+            "source_timestamp": None,
+            "source_stale": None,
+            "source_freshness": "unknown",
+            "polling_status": "available",
+            "api_error": None,
+            "player_score": player_score,
+            "clan_score": clan_score,
+        }
 
     async def fetch_global() -> dict[str, Any]:
         analytics_data = (
@@ -321,7 +397,7 @@ def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntime
             entry,
             "online",
             get_update_interval(options, "online"),
-            lambda: async_fetch_cloud_data(api),
+            fetch_online,
             {
                 "value": {
                     "online_count": None,
