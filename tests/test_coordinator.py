@@ -125,7 +125,6 @@ def test_poll_intervals_are_clamped_to_safe_bounds() -> None:
     assert get_update_interval(options, "online") == timedelta(hours=24)
 
 
-
 @pytest.mark.asyncio
 async def test_archive_partial_error_keeps_last_good_snapshot(hass) -> None:
     async def partial_fetch() -> dict:

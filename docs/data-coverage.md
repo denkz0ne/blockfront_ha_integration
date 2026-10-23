@@ -1,6 +1,6 @@
 # Data coverage and limitations
 
-The integration combines data from an external statistics API with separate online-count sources. Access is limited and may be granted on request. Use it only with authorization from its provider.
+Personal profile and recent-match pages are read from the public BlockFront player website. Additional personal history, archived data, analytics and game-wide datasets use the locally configured Statistics API when available. Online counts fall back to official public data. Use private API access only with authorization from its provider.
 
 ## Personal data
 
@@ -8,11 +8,11 @@ The integration combines data from an external statistics API with separate onli
 - Recent recorded matches and their map, mode, result and performance details.
 - Recorded match analysis by map and mode.
 - Profile snapshots, competitive rank observations and season progress where available.
-- Optional archived class progression and saved inventory.
+- Optional archived class progression and saved inventory from the configured Statistics API.
 
 ## Game-wide data
 
-- Current aggregate online-player total and, when published, population by game mode and scoreboard reset time.
+- Current aggregate online-player total. Per-mode online counts and scoreboard reset time are not currently available.
 - Recorded population trends and map statistics.
 - Selected player, clan and competitive rankings.
 - Statistics-service availability, data freshness and request-limit diagnostics.
@@ -38,4 +38,4 @@ Refresh intervals are configurable by data group. Defaults and minimums are list
 
 ## Access details
 
-The integration uses a configurable Statistics API for profile lookup and complementary analytics, with Community API as the default for supported profile, match, inventory and cloud data. Credentials are sent only to the configured Statistics API. Provider addresses, request paths and other service identifiers are omitted while access arrangements are being clarified.
+The configured Statistics API is used for player lookup and supplementary data not available on the player pages. The integration stores its address and optional credential in the Home Assistant config entry and sends that credential only to the configured address. The Vuis player page scraper supplies current profile and recent-match data without an API credential. Scraped pages do not include reliable capture timestamps; their fetch time only records when Home Assistant read the page. If a public page changes its layout, affected scraped sensors may become unknown until the parser is updated.

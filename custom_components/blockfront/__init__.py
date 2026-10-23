@@ -160,9 +160,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlockFrontConfigEntry) -
                 coordinator = runtime.coordinators[group]
                 last_attempt = coordinator.last_attempt_at
                 minimum = MIN_INTERVALS[UPDATE_INTERVALS[group]]
-                if last_attempt is None or (
-                    datetime.now(UTC) - last_attempt
-                ).total_seconds() >= minimum:
+                if (
+                    last_attempt is None
+                    or (datetime.now(UTC) - last_attempt).total_seconds() >= minimum
+                ):
                     await coordinator.async_refresh()
 
         def _schedule_cooldown_check() -> None:
@@ -276,9 +277,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlockFrontConfigEntry) -
                     continue
             await coordinator.async_refresh()
 
-    task = hass.async_create_task(
-        _initial_refresh(), f"{DOMAIN}_{entry.entry_id}_initial_refresh"
-    )
+    task = hass.async_create_task(_initial_refresh(), f"{DOMAIN}_{entry.entry_id}_initial_refresh")
     entry.async_on_unload(task.cancel)
     return True
 

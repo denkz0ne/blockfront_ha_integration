@@ -20,9 +20,9 @@ Copy `custom_components/blockfront` into `<Home Assistant config>/custom_compone
 
 ## Data access
 
-The integration uses Community API as the default for supported player profiles, matches, inventory and cloud data. The separately configured Statistics API remains available for analytics and history, and can fill profile fields that Community API does not publish. Enter its base URL and, if authorized, its API key in integration setup or **Configure** options. Home Assistant stores both locally in the config entry; the key is sent only to that configured API. Leaving the password field empty in **Configure** keeps the saved key. Values that neither source provides remain unknown.
+The default source for personal profile statistics and recent matches is the public Vuis player page. The integration reads the server-rendered HTML using the configured BlockFront username; the UUID is not required for scraping. The separately configured Statistics API remains available for analytics and history, and can supplement values missing from the page. Enter its base URL and, if authorized, its API key in integration setup or **Configure** options. Home Assistant stores both locally in the config entry; the key is sent only to that configured API. Leaving the password field empty in **Configure** keeps the saved key. Values that neither source provides remain unknown.
 
-The aggregate online total prefers Community API data and falls back to configured statistics and official sources when it is unavailable. When present, its sensor also exposes the online count by game mode and scoreboard reset time as attributes; these are not separate entities. If a backup has no capture timestamp, its observation age remains unknown. The integration does not change game data.
+The aggregate online total uses the configured Statistics API and falls back to official public data when needed. Per-mode online counts are not currently available. Class XP and inventory continue to use the configured Statistics API because they are not published on the Vuis player pages. The integration does not change game data.
 
 ## What you get
 
@@ -33,7 +33,7 @@ The aggregate online total prefers Community API data and falls back to configur
 - **Game overview:** online counts, maps, population trends and selected leaderboards.
 - **Service diagnostics:** data freshness, availability and request-limit information.
 
-The integration also includes local rank and skill-rank pictures. Some optional or archived values may be missing or delayed. Unknown values remain unknown rather than being shown as zero. Recorded match and analytics data may cover only a sample, not a player's full career.
+The integration also includes local rank and skill-rank pictures. The Vuis site is an early build and its HTML can change; scraped pages do not provide capture timestamps. Some optional or archived values may be missing or delayed. Unknown values remain unknown rather than being shown as zero. Recorded match and analytics data may cover only a sample, not a player's full career. Vuis match pages currently show relative end times, so exact timestamp sensors remain unknown.
 
 ## Dashboard example
 

@@ -770,7 +770,7 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
             "rate_limit": rate_limit or {},
             "retry_after": retry_after,
             "public_api_error": errors.get("statistics_api"),
-            "api_error": errors.get("blockfront_cloud_api"),
+            "api_error": errors.get("blockfront_official_api") or errors.get("official_website"),
             "fallback_errors": dict(errors),
             "polling_status": "degraded" if stale is True else "available",
         }
@@ -784,29 +784,17 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
             primary_candidate = (count, captured_at)
         else:
             return selected(
-                count, "statistics_api", captured_at=captured_at,
-                stale=overview.get("source_stale") if isinstance(
-                    overview.get("source_stale"), bool
-                ) else None,
+                count,
+                "statistics_api",
+                captured_at=captured_at,
+                stale=overview.get("source_stale")
+                if isinstance(overview.get("source_stale"), bool)
+                else None,
             )
     except ApiError as err:
         errors["statistics_api"] = str(err)
 
-    cloud_error: ApiError | None = None
-    try:
-        cloud = parse_cloud_data(await api.async_get_cloud_data())
-    except ApiError as err:
-        cloud_error = err
-        errors["blockfront_cloud_api"] = str(err)
-    else:
-        return selected(
-            cloud["online_count"],
-            "blockfront_cloud_api",
-            stale=False if primary_candidate is not None else None,
-            rate_limit=cloud["rate_limit"],
-            retry_after=cloud["retry_after"],
-        )
-
+    official_error: ApiError | None = None
     try:
         official = await api._get_json(
             "",
@@ -816,13 +804,16 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
         )
         official_count = parse_online_count({"online": official})
     except ApiError as err:
+        official_error = err
         errors["blockfront_official_api"] = str(err)
     else:
         return selected(official_count, "blockfront_official_api")
 
+    website_error: ApiError | None = None
     try:
         website_count = await api.async_get_official_online_count()
     except ApiError as err:
+        website_error = err
         errors["official_website"] = str(err)
     else:
         return selected(website_count, "official_website")
@@ -830,15 +821,18 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
     if primary_candidate is not None:
         # The only valid reading is old; don't discard it or invent a new capture time.
         return selected(
-            primary_candidate[0], "statistics_api",
-            captured_at=primary_candidate[1], stale=True,
+            primary_candidate[0],
+            "statistics_api",
+            captured_at=primary_candidate[1],
+            stale=True,
         )
 
+    last_error = official_error or website_error
     raise ApiError(
         "Online player data unavailable from all sources",
-        status_code=cloud_error.status_code if cloud_error else None,
-        retry_after=cloud_error.retry_after if cloud_error else None,
-        rate_limit=cloud_error.rate_limit if cloud_error else None,
+        status_code=last_error.status_code if last_error else None,
+        retry_after=last_error.retry_after if last_error else None,
+        rate_limit=last_error.rate_limit if last_error else None,
     )
 
 

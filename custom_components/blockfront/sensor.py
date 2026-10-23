@@ -571,6 +571,7 @@ SENSOR_DESCRIPTIONS += (
 
 _MATCH_ATTRIBUTE_KEYS = (
     "ended_at",
+    "ended_ago",
     "started_at_estimated",
     "environment",
     "map",
@@ -584,6 +585,8 @@ _MATCH_ATTRIBUTE_KEYS = (
     "duration_seconds",
     "placement",
     "match_id",
+    "result",
+    "source",
 )
 
 
@@ -918,6 +921,11 @@ class BlockFrontSensor(_PlayerNamedEntity, CoordinatorEntity[BlockFrontCoordinat
             attributes["supplement_source"] = value.get("supplement_source")
             attributes["supplemented_fields"] = value.get("supplemented_fields", [])
             attributes["supplement_error"] = value.get("supplement_error")
+            attributes["rank_icon_id"] = value.get("rank_icon_id")
+            attributes["skill_rank_icon_id"] = value.get("skill_rank_icon_id")
+            attributes["rank_exp_progress"] = value.get("rank_exp_progress")
+            attributes["rank_exp_required"] = value.get("rank_exp_required")
+            attributes["rank_exp_remaining"] = value.get("rank_exp_remaining")
             if value.get("clan_data") is not None:
                 attributes["clan_data"] = value["clan_data"]
             if value.get("clan_data_error") is not None:

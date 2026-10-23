@@ -17,7 +17,6 @@ from .const import (
     CONF_API_KEY,
     CONF_PLAYER_UUID,
     CONF_USERNAME,
-    DEFAULT_COMMUNITY_API_BASE_URL,
     DEFAULT_OPTIONS,
     DOMAIN,
     MAX_INTERVAL_SECONDS,
@@ -27,13 +26,13 @@ from .const import (
     OPTION_ACTIVITY_MATCH,
     OPTION_ADAPTIVE_MARGIN,
     OPTION_ADAPTIVE_POLLING,
-    OPTION_COMMUNITY_API_BASE_URL,
     OPTION_IDLE_HEARTBEAT,
     OPTION_MATCHES_SOURCE,
     OPTION_PRESENCE_MODE,
     OPTION_PROFILE_SOURCE,
-    SOURCE_BLOCKLYTICS,
     SOURCE_COMMUNITY,
+    SOURCE_STATISTICS_API,
+    SOURCE_VUIS,
 )
 
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
@@ -118,20 +117,13 @@ class BlockFrontOptionsFlow(OptionsFlow):
                     data_schema=self._schema(),
                     errors={CONF_API_BASE_URL: "invalid_api_url"},
                 )
-            try:
-                user_input[OPTION_COMMUNITY_API_BASE_URL] = normalize_api_base_url(
-                    user_input[OPTION_COMMUNITY_API_BASE_URL]
-                )
-            except (KeyError, ValueError):
-                return self.async_show_form(
-                    step_id="init",
-                    data_schema=self._schema(),
-                    errors={OPTION_COMMUNITY_API_BASE_URL: "invalid_api_url"},
-                )
             saved_key = self.config_entry.options.get(CONF_API_KEY) or self.config_entry.data.get(
                 CONF_API_KEY, ""
             )
             user_input[CONF_API_KEY] = user_input.get(CONF_API_KEY, "").strip() or saved_key
+            for source_key in (OPTION_PROFILE_SOURCE, OPTION_MATCHES_SOURCE):
+                if user_input.get(source_key) == SOURCE_COMMUNITY:
+                    user_input[source_key] = SOURCE_VUIS
             return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(step_id="init", data_schema=self._schema())
@@ -144,12 +136,6 @@ class BlockFrontOptionsFlow(OptionsFlow):
         )
         schema: dict[vol.Marker, Any] = {
             vol.Required(CONF_API_BASE_URL, default=saved_url): str,
-            vol.Required(
-                OPTION_COMMUNITY_API_BASE_URL,
-                default=self.config_entry.options.get(
-                    OPTION_COMMUNITY_API_BASE_URL, DEFAULT_COMMUNITY_API_BASE_URL
-                ),
-            ): str,
             vol.Optional(CONF_API_KEY, default=""): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
             ),
@@ -173,16 +159,22 @@ class BlockFrontOptionsFlow(OptionsFlow):
                 vol.Range(min=MIN_INTERVALS[key], max=MAX_INTERVAL_SECONDS),
             )
         for source_key in (OPTION_PROFILE_SOURCE, OPTION_MATCHES_SOURCE):
+            saved_source = self.config_entry.options.get(source_key, SOURCE_VUIS)
+            default_source = (
+                SOURCE_VUIS
+                if saved_source in (SOURCE_VUIS, SOURCE_COMMUNITY)
+                else SOURCE_STATISTICS_API
+            )
             schema[
                 vol.Required(
                     source_key,
-                    default=self.config_entry.options.get(source_key, SOURCE_COMMUNITY),
+                    default=default_source,
                 )
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[
-                        {"value": SOURCE_BLOCKLYTICS, "label": "Primary Statistics API"},
-                        {"value": SOURCE_COMMUNITY, "label": "Community API"},
+                        {"value": SOURCE_STATISTICS_API, "label": "Statistics API"},
+                        {"value": SOURCE_VUIS, "label": "Vuis player pages (HTML)"},
                     ],
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )

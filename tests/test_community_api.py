@@ -1,4 +1,5 @@
 """Tests for the optional community source adapter."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -17,9 +18,14 @@ UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
 async def test_profile_maps_community_fields_to_existing_sensor_keys() -> None:
     client = AsyncMock()
     client._get_json.return_value = {
-        "uuid": UUID, "username": "denkz0ne", "kills": 120,
-        "deaths": 40, "head_shots": 30, "exp": 5000,
-        "total_games": 9, "clan": None,
+        "uuid": UUID,
+        "username": "denkz0ne",
+        "kills": 120,
+        "deaths": 40,
+        "head_shots": 30,
+        "exp": 5000,
+        "total_games": 9,
+        "clan": None,
     }
     result = await CommunityApi(client, TEST_BASE).async_get_player(UUID)
     assert result["kd"] == 3
@@ -27,7 +33,9 @@ async def test_profile_maps_community_fields_to_existing_sensor_keys() -> None:
     assert result["exp"] == 5000
     assert result["source"] == "community_api"
     client._get_json.assert_awaited_once_with(
-        "player_data", params={"uuid": UUID}, base_url=TEST_BASE,
+        "player_data",
+        params={"uuid": UUID},
+        base_url=TEST_BASE,
         service_name="Community API",
     )
 

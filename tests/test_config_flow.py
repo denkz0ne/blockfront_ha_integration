@@ -15,11 +15,9 @@ from custom_components.blockfront.const import (
     CONF_API_KEY,
     CONF_PLAYER_UUID,
     CONF_USERNAME,
-    DEFAULT_COMMUNITY_API_BASE_URL,
     DEFAULT_OPTIONS,
     DOMAIN,
     OPTION_ACTIVITY_ENTITY,
-    OPTION_COMMUNITY_API_BASE_URL,
     OPTION_MATCHES_SOURCE,
     OPTION_PROFILE_SOURCE,
     SOURCE_COMMUNITY,
@@ -41,6 +39,7 @@ async def test_config_flow_resolves_username_and_creates_entry(hass) -> None:
         patch("custom_components.blockfront.config_flow.BlockFrontApi") as api_class,
         patch("custom_components.blockfront.coordinator.async_get_clientsession"),
         patch("custom_components.blockfront.coordinator.BlockFrontApi") as coordinator_api,
+        patch("custom_components.blockfront.coordinator.VuisWebsite") as vuis_class,
     ):
         api_class.return_value.async_resolve_player = AsyncMock(return_value=PLAYER_UUID)
         coordinator_api.return_value.polling_data.return_value = {
@@ -66,6 +65,16 @@ async def test_config_flow_resolves_username_and_creates_entry(hass) -> None:
         coordinator_api.return_value.async_get_overview = AsyncMock(
             return_value={"online": {"playersOnline": 0}}
         )
+        vuis_class.return_value.async_get_player = AsyncMock(
+            return_value={
+                "exp": 1,
+                "kills": 1,
+                "skill_rank": {"title": "Iron 3", "index": 7},
+                "captures": 1,
+                "objective_score": 1,
+            }
+        )
+        vuis_class.return_value.async_get_match_data = AsyncMock(return_value={"matches": []})
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
@@ -179,7 +188,6 @@ async def test_options_flow_shows_independent_default_intervals(hass) -> None:
     assert defaults == {
         CONF_API_BASE_URL: "",
         CONF_API_KEY: "",
-        OPTION_COMMUNITY_API_BASE_URL: DEFAULT_COMMUNITY_API_BASE_URL,
         **expected_options,
     }
 

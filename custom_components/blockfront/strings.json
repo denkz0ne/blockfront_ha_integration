@@ -45,8 +45,7 @@
           "archive_interval": "Class XP and inventory refresh (seconds)",
           "global_interval": "Maps, trends, player counts and leaderboards refresh (seconds)",
           "profile_source": "Player statistics source",
-          "matches_source": "Match history source",
-          "community_api_base_url": "Community API base URL"
+          "matches_source": "Match history source"
         },
         "data_description": {
           "api_base_url": "Base address of your statistics API. The integration uses this address for private player data.",
@@ -66,9 +65,8 @@
           "history_interval": "How often to check personal history and rank snapshots while personal polling is active.",
           "archive_interval": "How often to check optional class XP and inventory snapshots while personal polling is active.",
           "global_interval": "How often to refresh shared game data. This continues even when personal polling is idle.",
-          "profile_source": "Choose the primary source for profile statistics. Community API is the default.",
-          "matches_source": "Choose the source for match history. Community API is the default.",
-          "community_api_base_url": "Independent second provider base URL including /api/v1/. Does not change the primary source address."
+          "profile_source": "Choose the primary source for profile statistics. Vuis player pages are the default.",
+          "matches_source": "Choose the source for recent match history. Vuis player pages are the default."
         }
       }
     },

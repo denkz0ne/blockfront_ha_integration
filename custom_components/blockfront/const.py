@@ -17,7 +17,10 @@ CONF_API_BASE_URL = "api_base_url"
 CONF_API_KEY = "api_key"
 OPTION_PROFILE_SOURCE = "profile_source"
 OPTION_MATCHES_SOURCE = "matches_source"
-SOURCE_BLOCKLYTICS = "blocklytics"
+SOURCE_STATISTICS_API = "statistics_api"
+SOURCE_VUIS = "vuis"
+# Keep reading already-saved config entries from releases that called this
+# source Community API; new options use the Vuis HTML scraper.
 SOURCE_COMMUNITY = "community"
 OPTION_COMMUNITY_API_BASE_URL = "community_api_base_url"
 DEFAULT_COMMUNITY_API_BASE_URL = "https://blockfrontapi.vuis.dev/api/v1/"
@@ -39,8 +42,8 @@ OPTION_ADAPTIVE_MARGIN = "adaptive_margin_percent"
 OPTION_PRESENCE_MODE = "presence_mode"
 
 DEFAULT_OPTIONS: dict[str, int | str] = {
-    OPTION_PROFILE_SOURCE: SOURCE_COMMUNITY,
-    OPTION_MATCHES_SOURCE: SOURCE_COMMUNITY,
+    OPTION_PROFILE_SOURCE: SOURCE_VUIS,
+    OPTION_MATCHES_SOURCE: SOURCE_VUIS,
     OPTION_ANALYTICS_INTERVAL: 1800,
     OPTION_HISTORY_INTERVAL: 3600,
     OPTION_ARCHIVE_INTERVAL: 21600,

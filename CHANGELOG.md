@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 — 2026-10-23
+
+- Replace the retired player JSON endpoint with scraping of the current public Vuis player and recent-match pages.
+- Parse personal rank, skill rank, XP, match karma, play time, combat and objective statistics, and recent match rows.
+- Stop querying the retired Community JSON endpoint for profile, match and online data; keep online counts on the configured and official fallbacks.
+- Keep class XP and inventory on the configured Statistics API because the current player pages do not publish them.
+- Keep exact match-end timestamps unknown because recent-match rows contain only relative times.
+- Keep saved source settings compatible while showing the Vuis HTML source as the default in new configuration options.
 
 ## 0.7.0 — 2026-10-23
 

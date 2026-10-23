@@ -44,9 +44,7 @@ class CommunityApi:
         )
         result["hs_kr"] = (
             round(headshots / kills, 3)
-            if isinstance(headshots, (int, float))
-            and isinstance(kills, (int, float))
-            and kills > 0
+            if isinstance(headshots, (int, float)) and isinstance(kills, (int, float)) and kills > 0
             else None
         )
         result["source"] = "community_api"
@@ -87,9 +85,7 @@ class CommunityApi:
             raise ApiError("Community API returned invalid mode player counts")
         return data
 
-    async def async_get_archive_data(
-        self, uuid: str, profile: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def async_get_archive_data(self, uuid: str, profile: dict[str, Any]) -> dict[str, Any]:
         """Adapt profile class XP and inventory to the existing archive dataset."""
         try:
             data = await self._client._get_json(
@@ -120,8 +116,7 @@ class CommunityApi:
             }
         class_exp = profile.get("class_exp")
         if class_exp is not None and (
-            not isinstance(class_exp, list)
-            or any(not isinstance(item, dict) for item in class_exp)
+            not isinstance(class_exp, list) or any(not isinstance(item, dict) for item in class_exp)
         ):
             raise ApiError("Community API returned invalid class XP")
         return {

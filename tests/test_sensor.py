@@ -174,7 +174,6 @@ def test_service_sensor_exposes_stale_feed_diagnostics(hass) -> None:
     assert sensor.extra_state_attributes["upstream_error"] == "upstream returned status 503"
 
 
-
 def test_archive_sensor_retains_source_capture_and_stale_diagnostics(hass) -> None:
     archived = {
         "classes": {

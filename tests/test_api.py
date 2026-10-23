@@ -227,7 +227,7 @@ async def test_valid_statistics_online_count_skips_cloud_fallback() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stale_primary_uses_fresh_cloud_source_truthfully() -> None:
+async def test_stale_primary_uses_official_source_truthfully() -> None:
     class Api:
         async def async_get_overview(self) -> dict[str, Any]:
             return {
@@ -237,14 +237,14 @@ async def test_stale_primary_uses_fresh_cloud_source_truthfully() -> None:
             }
 
         async def async_get_cloud_data(self) -> dict[str, Any]:
-            return {"players_online": 47}
+            raise AssertionError("retired cloud endpoint should not be requested")
 
         async def _get_json(self, *_: Any, **__: Any) -> dict[str, Any]:
-            raise AssertionError("fresh cloud source should stop the fallback chain")
+            return {"playersOnline": 47}
 
     data = await async_fetch_cloud_data(Api())  # type: ignore[arg-type]
     assert data["online_count"] == 47
-    assert data["source"] == "blockfront_cloud_api"
+    assert data["source"] == "blockfront_official_api"
     assert data["source_timestamp"] is None
     assert data["source_stale"] is False
     assert data["polling_status"] == "available"
@@ -404,12 +404,10 @@ class FakeFallbackApi:
     def __init__(
         self,
         primary: object | Exception,
-        cloud: object | Exception | None = None,
         official: object | Exception | None = None,
         website: int | Exception | None = None,
     ) -> None:
         self.primary = primary
-        self.cloud = cloud
         self.official = official
         self.website = website
         self.calls: list[str] = []
@@ -419,13 +417,6 @@ class FakeFallbackApi:
         if isinstance(self.primary, Exception):
             raise self.primary
         return self.primary
-
-    async def async_get_cloud_data(self) -> object:
-        self.calls.append("cloud")
-        assert self.cloud is not None, "Cloud fallback was not expected"
-        if isinstance(self.cloud, Exception):
-            raise self.cloud
-        return self.cloud
 
     async def _get_json(self, path: str, **kwargs: Any) -> object:
         self.calls.append("official")
@@ -460,16 +451,16 @@ async def test_online_fallback_does_not_request_cloud_when_primary_is_current() 
 
 
 @pytest.mark.asyncio
-async def test_online_fallback_selects_cloud_when_primary_unusable() -> None:
+async def test_online_fallback_selects_official_api_when_primary_unusable() -> None:
     api = FakeFallbackApi(
         ApiError("Primary timeout"),
-        {"players_online": 80, "_rate_limit": {"RateLimit-Limit": "20"}},
+        {"playersOnline": 80},
     )
     data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
 
-    assert api.calls == ["primary", "cloud"]
+    assert api.calls == ["primary", "official"]
     assert data["online_count"] == 80
-    assert data["source"] == "blockfront_cloud_api"
+    assert data["source"] == "blockfront_official_api"
     assert data["polling_status"] == "available"
     assert data["source_timestamp"] is None
     assert data["source_freshness"] == "unknown"
@@ -480,46 +471,44 @@ async def test_online_fallback_selects_cloud_when_primary_unusable() -> None:
 async def test_online_stale_primary_uses_backup_without_inheriting_timestamp() -> None:
     api = FakeFallbackApi(
         {"online": {"playersOnline": 70}, "generatedAt": 1000, "source_stale": True},
-        {"players_online": 84},
+        {"playersOnline": 84},
     )
     data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
 
-    assert api.calls == ["primary", "cloud"]
+    assert api.calls == ["primary", "official"]
     assert data["online_count"] == 84
-    assert data["source"] == "blockfront_cloud_api"
+    assert data["source"] == "blockfront_official_api"
     assert data["source_timestamp"] is None
     assert data["source_stale"] is False
 
 
 @pytest.mark.asyncio
-async def test_online_cloud_quota_error_does_not_mark_official_backup_unavailable() -> None:
+async def test_online_primary_failure_uses_official_api_backup() -> None:
     api = FakeFallbackApi(
         ApiError("Primary failed"),
-        ApiError("Cloud quota exhausted", status_code=429, retry_after="60"),
         {"playersOnline": 77},
     )
     data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
 
-    assert api.calls == ["primary", "cloud", "official"]
+    assert api.calls == ["primary", "official"]
     assert data["online_count"] == 77
     assert data["source"] == "blockfront_official_api"
     assert data["polling_status"] == "available"
     assert data["source_timestamp"] is None
     assert data["rate_limit"] == {}
-    assert "blockfront_cloud_api" in data["fallback_errors"]
+    assert data["fallback_errors"] == {"statistics_api": "Primary failed"}
 
 
 @pytest.mark.asyncio
 async def test_online_fallback_can_use_official_website() -> None:
     api = FakeFallbackApi(
         ApiError("Primary timeout"),
-        ApiError("Cloud unavailable"),
-        ApiError("Official API unavailable"),
-        73,
+        official=ApiError("Official API unavailable"),
+        website=73,
     )
     data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
 
-    assert api.calls == ["primary", "cloud", "official", "website"]
+    assert api.calls == ["primary", "official", "website"]
     assert data["online_count"] == 73
     assert data["source"] == "official_website"
     assert data["polling_status"] == "available"
@@ -530,13 +519,12 @@ async def test_online_fallback_can_use_official_website() -> None:
 async def test_online_stale_primary_is_preserved_when_all_fallbacks_fail() -> None:
     api = FakeFallbackApi(
         {"online": {"playersOnline": 66}, "generatedAt": 1000, "source_stale": True},
-        ApiError("Cloud offline"),
-        ApiError("Official API offline"),
-        ApiError("Website offline"),
+        official=ApiError("Official API offline"),
+        website=ApiError("Website offline"),
     )
     data = await async_fetch_cloud_data(api)  # type: ignore[arg-type]
 
-    assert api.calls == ["primary", "cloud", "official", "website"]
+    assert api.calls == ["primary", "official", "website"]
     assert data["online_count"] == 66
     assert data["source"] == "statistics_api"
     assert data["source_timestamp"] == 1000
@@ -548,14 +536,13 @@ async def test_online_stale_primary_is_preserved_when_all_fallbacks_fail() -> No
 async def test_online_all_sources_unavailable_raises_api_error() -> None:
     api = FakeFallbackApi(
         ApiError("Primary timeout"),
-        ApiError("Cloud quota", status_code=429, retry_after="60"),
-        ApiError("Official API offline"),
-        ApiError("Website offline"),
+        official=ApiError("Official API offline", status_code=429, retry_after="60"),
+        website=ApiError("Website offline"),
     )
     with pytest.raises(ApiError, match="all sources") as err:
         await async_fetch_cloud_data(api)  # type: ignore[arg-type]
 
-    assert api.calls == ["primary", "cloud", "official", "website"]
+    assert api.calls == ["primary", "official", "website"]
     assert err.value.status_code == 429
     assert err.value.retry_after == "60"
 
@@ -565,14 +552,18 @@ async def test_archive_reads_enveloped_class_and_inventory_data() -> None:
     player_uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
     api = BlockFrontApi(
         FakeSession(
-            FakeResponse(payload={
-                "data": {"items": [{"id": 0, "exp": 130}], "captured_at": 1720000000000},
-                "meta": {"stale": False, "updatedAt": "2026-10-20T15:00:00Z"},
-            }),
-            FakeResponse(payload={
-                "data": {"items": [{"name": "item"}], "captured_at": 1719000000000},
-                "meta": {"stale": True, "updatedAt": "2026-10-19T12:00:00Z"},
-            }),
+            FakeResponse(
+                payload={
+                    "data": {"items": [{"id": 0, "exp": 130}], "captured_at": 1720000000000},
+                    "meta": {"stale": False, "updatedAt": "2026-10-20T15:00:00Z"},
+                }
+            ),
+            FakeResponse(
+                payload={
+                    "data": {"items": [{"name": "item"}], "captured_at": 1719000000000},
+                    "meta": {"stale": True, "updatedAt": "2026-10-19T12:00:00Z"},
+                }
+            ),
         ),
         api_base_url=TEST_API_BASE_URL,
     )
@@ -591,10 +582,12 @@ async def test_archive_reads_enveloped_class_and_inventory_data() -> None:
 async def test_archive_rejects_raw_or_invalid_envelopes_without_fabricating_zero() -> None:
     session = FakeSession(
         FakeResponse(payload={"items": [{"id": 0, "exp": 30}], "captured_at": 123}),
-        FakeResponse(payload={
-            "data": {"items": [{"name": "item"}], "captured_at": 2000},
-            "meta": {"stale": False},
-        }),
+        FakeResponse(
+            payload={
+                "data": {"items": [{"name": "item"}], "captured_at": 2000},
+                "meta": {"stale": False},
+            }
+        ),
     )
     api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL)
     data = await api.async_get_archive_data("85c194ce-8ae5-4736-bf14-7e9bdd204c66")
@@ -609,12 +602,18 @@ async def test_archive_rejects_raw_or_invalid_envelopes_without_fabricating_zero
 async def test_archive_suppresses_repeated_404_for_one_day() -> None:
     session = FakeSession(
         FakeResponse(status=404),
-        FakeResponse(payload={
-            "data": {"items": []}, "meta": {"stale": False},
-        }),
-        FakeResponse(payload={
-            "data": {"items": []}, "meta": {"stale": False},
-        }),
+        FakeResponse(
+            payload={
+                "data": {"items": []},
+                "meta": {"stale": False},
+            }
+        ),
+        FakeResponse(
+            payload={
+                "data": {"items": []},
+                "meta": {"stale": False},
+            }
+        ),
     )
     api = BlockFrontApi(session, api_base_url=TEST_API_BASE_URL)
     uuid = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
@@ -636,14 +635,18 @@ async def test_archive_suppresses_repeated_404_for_one_day() -> None:
 async def test_archive_invalid_capture_timestamp_is_not_accepted() -> None:
     api = BlockFrontApi(
         FakeSession(
-            FakeResponse(payload={
-                "data": {"items": [], "captured_at": True},
-                "meta": {"stale": False},
-            }),
-            FakeResponse(payload={
-                "data": {"items": [], "captured_at": 1720000000000},
-                "meta": {"stale": False},
-            }),
+            FakeResponse(
+                payload={
+                    "data": {"items": [], "captured_at": True},
+                    "meta": {"stale": False},
+                }
+            ),
+            FakeResponse(
+                payload={
+                    "data": {"items": [], "captured_at": 1720000000000},
+                    "meta": {"stale": False},
+                }
+            ),
         ),
         api_base_url=TEST_API_BASE_URL,
     )
