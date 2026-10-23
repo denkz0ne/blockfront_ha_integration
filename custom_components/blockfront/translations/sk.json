@@ -65,7 +65,7 @@
           "history_interval": "Ako často kontrolovať osobnú históriu a hodnosti.",
           "archive_interval": "Ako často kontrolovať voliteľné údaje o XP tried a inventári.",
           "global_interval": "Ako často obnovovať spoločné údaje hry. Obnovovanie pokračuje aj počas osobnej nečinnosti.",
-          "profile_source": "Blocklytics zostáva predvolený. vuis.dev používa samostatné BFAPI a zachová existujúce entity.",
+          "profile_source": "Blocklytics zostáva predvolený. community API používa samostatné BFAPI a zachová existujúce entity.",
           "matches_source": "Samostatný výber poskytovateľa histórie zápasov."
         }
       }
