@@ -765,7 +765,11 @@ async def async_fetch_cloud_data(api: BlockFrontApi) -> dict[str, Any]:
             "source_stale": stale,
             # Backups without capture metadata are live HTTP reads with unknown age.
             "source_freshness": (
-                "stale" if stale is True else "reported_current" if stale is False else "unknown"
+                "stale"
+                if stale is True
+                else "reported_current"
+                if stale is False and captured_at is not None
+                else "unknown"
             ),
             "rate_limit": rate_limit or {},
             "retry_after": retry_after,
