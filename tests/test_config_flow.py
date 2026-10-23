@@ -18,6 +18,8 @@ from custom_components.blockfront.const import (
     DEFAULT_OPTIONS,
     DOMAIN,
     OPTION_ACTIVITY_ENTITY,
+    OPTION_COMMUNITY_API_BASE_URL,
+    DEFAULT_COMMUNITY_API_BASE_URL,
 )
 
 PLAYER_UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
