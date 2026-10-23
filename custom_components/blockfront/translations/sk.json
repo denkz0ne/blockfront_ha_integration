@@ -66,8 +66,8 @@
           "history_interval": "Ako často kontrolovať osobnú históriu a hodnosti.",
           "archive_interval": "Ako často kontrolovať voliteľné údaje o XP tried a inventári.",
           "global_interval": "Ako často obnovovať spoločné údaje hry. Obnovovanie pokračuje aj počas osobnej nečinnosti.",
-          "profile_source": "Blocklytics zostáva predvolený. community API používa samostatné BFAPI a zachová existujúce entity.",
-          "matches_source": "Samostatný výber poskytovateľa histórie zápasov.",
+          "profile_source": "Vyber hlavný zdroj hráčskych štatistík. Predvolený je Community API.",
+          "matches_source": "Vyber zdroj histórie zápasov. Predvolený je Community API.",
           "community_api_base_url": "Samostatná adresa druhého poskytovateľa vrátane /api/v1/. Neovplyvňuje URL prvého zdroja."
         }
       }

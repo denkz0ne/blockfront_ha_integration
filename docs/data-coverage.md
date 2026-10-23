@@ -12,7 +12,7 @@ The integration combines data from an external statistics API with separate onli
 
 ## Game-wide data
 
-- Current aggregate online-player total.
+- Current aggregate online-player total and, when published, population by game mode and scoreboard reset time.
 - Recorded population trends and map statistics.
 - Selected player, clan and competitive rankings.
 - Statistics-service availability, data freshness and request-limit diagnostics.
@@ -25,6 +25,7 @@ The integration combines data from an external statistics API with separate onli
 - Season and ranking values may be absent when the service does not publish them for the player.
 - Ratios are numeric values rounded to two decimal places. Missing values remain unknown rather than becoming zero.
 - The aggregate online total can come from separate sources and may differ slightly between snapshots.
+- Mode counts are exposed as attributes of the aggregate online sensor when supplied; the integration does not create separate per-mode entities.
 - If a request fails, the integration keeps the last good value and exposes freshness or error details.
 - Activity attributes expose `playing_state`, `presence_source`, confidence, whether personal collection is paused, and the next personal check. `source_timestamp` is the upstream observation marker; it is separate from the HTTP check time.
 - Personal delta sensors are labeled “since last observation.” They compare distinct source snapshots and do not imply an exact daily total. Rank or prestige resets can make an XP delta unknown.
@@ -37,4 +38,4 @@ Refresh intervals are configurable by data group. Defaults and minimums are list
 
 ## Access details
 
-The service is described here only as an external statistics API with access available by request. Provider addresses, request paths and other service identifiers are omitted while access arrangements are being clarified.
+The integration uses a configurable Statistics API for profile lookup and complementary analytics, with Community API as the default for supported profile, match, inventory and cloud data. Credentials are sent only to the configured Statistics API. Provider addresses, request paths and other service identifiers are omitted while access arrangements are being clarified.

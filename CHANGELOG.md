@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+## 0.7.0 — 2026-10-23
+
+- Make Community API the default source for profile and match data and migrate existing entries to that default.
+- Run initial coordinator refreshes in the background so slow optional datasets do not delay integration setup.
+- Normalize class XP, inventory, clan details and global cloud counts where available, while retaining existing entity IDs.
+- Keep API credentials isolated to the configured Statistics API and describe source coverage without host or route identifiers.
+- Validate missing/invalid profile, inventory, clan, cloud and match payloads.
+
 ## 0.6.0 — 2026-10-23
 
 - Add optional Community API for player profiles and recent match history, with an independently configurable base URL.
