@@ -7,8 +7,9 @@ import pytest
 
 from custom_components.blockfront.api import ApiError
 
-TEST_BASE = "https://community.example.invalid/api/v1/"
 from custom_components.blockfront.community_api import CommunityApi
+
+TEST_BASE = "https://community.example.invalid/api/v1/"
 
 UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
 
