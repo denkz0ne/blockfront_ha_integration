@@ -20,9 +20,9 @@ Copy `custom_components/blockfront` into `<Home Assistant config>/custom_compone
 
 ## Data access
 
-Most player and game statistics come from a separately configured statistics API. Enter its base URL and, if authorized, its API key in the integration setup or **Configure** options. Home Assistant stores both locally in the config entry; the key is sent only to the configured API. Leaving the password field empty in **Configure** keeps the saved key.
+The integration uses Community API as the default for supported player profiles, matches, inventory and cloud data. The separately configured Statistics API remains available for analytics and history, and can fill profile fields that Community API does not publish. Enter its base URL and, if authorized, its API key in integration setup or **Configure** options. Home Assistant stores both locally in the config entry; the key is sent only to that configured API. Leaving the password field empty in **Configure** keeps the saved key. Values that neither source provides remain unknown.
 
-The aggregate online total tries alternative sources only when the primary response fails or is explicitly marked stale. If a backup has no capture timestamp, its observation age remains unknown. Online counts by game mode are not currently provided. The integration does not change game data.
+The aggregate online total prefers Community API data and falls back to configured statistics and official sources when it is unavailable. When present, its sensor also exposes the online count by game mode and scoreboard reset time as attributes; these are not separate entities. If a backup has no capture timestamp, its observation age remains unknown. The integration does not change game data.
 
 ## What you get
 
