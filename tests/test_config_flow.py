@@ -15,9 +15,11 @@ from custom_components.blockfront.const import (
     CONF_API_KEY,
     CONF_PLAYER_UUID,
     CONF_USERNAME,
+    DEFAULT_COMMUNITY_API_BASE_URL,
     DEFAULT_OPTIONS,
     DOMAIN,
     OPTION_ACTIVITY_ENTITY,
+    OPTION_COMMUNITY_API_BASE_URL,
 )
 
 PLAYER_UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
@@ -174,6 +176,7 @@ async def test_options_flow_shows_independent_default_intervals(hass) -> None:
     assert defaults == {
         CONF_API_BASE_URL: "",
         CONF_API_KEY: "",
+        OPTION_COMMUNITY_API_BASE_URL: DEFAULT_COMMUNITY_API_BASE_URL,
         **expected_options,
     }
 

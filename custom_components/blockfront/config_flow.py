@@ -17,6 +17,7 @@ from .const import (
     CONF_API_KEY,
     CONF_PLAYER_UUID,
     CONF_USERNAME,
+    DEFAULT_COMMUNITY_API_BASE_URL,
     DEFAULT_OPTIONS,
     DOMAIN,
     MAX_INTERVAL_SECONDS,
@@ -26,8 +27,13 @@ from .const import (
     OPTION_ACTIVITY_MATCH,
     OPTION_ADAPTIVE_MARGIN,
     OPTION_ADAPTIVE_POLLING,
+    OPTION_COMMUNITY_API_BASE_URL,
     OPTION_IDLE_HEARTBEAT,
+    OPTION_MATCHES_SOURCE,
     OPTION_PRESENCE_MODE,
+    OPTION_PROFILE_SOURCE,
+    SOURCE_BLOCKLYTICS,
+    SOURCE_COMMUNITY,
 )
 
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
@@ -112,6 +118,16 @@ class BlockFrontOptionsFlow(OptionsFlow):
                     data_schema=self._schema(),
                     errors={CONF_API_BASE_URL: "invalid_api_url"},
                 )
+            try:
+                user_input[OPTION_COMMUNITY_API_BASE_URL] = normalize_api_base_url(
+                    user_input[OPTION_COMMUNITY_API_BASE_URL]
+                )
+            except (KeyError, ValueError):
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=self._schema(),
+                    errors={OPTION_COMMUNITY_API_BASE_URL: "invalid_api_url"},
+                )
             saved_key = self.config_entry.options.get(CONF_API_KEY) or self.config_entry.data.get(
                 CONF_API_KEY, ""
             )
@@ -128,6 +144,12 @@ class BlockFrontOptionsFlow(OptionsFlow):
         )
         schema: dict[vol.Marker, Any] = {
             vol.Required(CONF_API_BASE_URL, default=saved_url): str,
+            vol.Required(
+                OPTION_COMMUNITY_API_BASE_URL,
+                default=self.config_entry.options.get(
+                    OPTION_COMMUNITY_API_BASE_URL, DEFAULT_COMMUNITY_API_BASE_URL
+                ),
+            ): str,
             vol.Optional(CONF_API_KEY, default=""): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
             ),
@@ -141,12 +163,26 @@ class BlockFrontOptionsFlow(OptionsFlow):
                 OPTION_ADAPTIVE_POLLING,
                 OPTION_ADAPTIVE_MARGIN,
                 OPTION_PRESENCE_MODE,
+                OPTION_PROFILE_SOURCE,
+                OPTION_MATCHES_SOURCE,
             }:
                 continue
             saved_value = self.config_entry.options.get(key, default)
             schema[vol.Required(key, default=saved_value)] = vol.All(
                 vol.Coerce(int),
                 vol.Range(min=MIN_INTERVALS[key], max=MAX_INTERVAL_SECONDS),
+            )
+        for source_key in (OPTION_PROFILE_SOURCE, OPTION_MATCHES_SOURCE):
+            schema[
+                vol.Required(
+                    source_key,
+                    default=self.config_entry.options.get(source_key, SOURCE_BLOCKLYTICS),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[SOURCE_BLOCKLYTICS, SOURCE_COMMUNITY],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
             )
         entity_default = self.config_entry.options.get(OPTION_ACTIVITY_ENTITY)
         entity_marker = (

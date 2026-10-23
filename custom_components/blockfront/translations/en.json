@@ -43,7 +43,10 @@
           "analytics_interval": "Match analytics refresh (seconds)",
           "history_interval": "Personal history and ranks refresh (seconds)",
           "archive_interval": "Class XP and inventory refresh (seconds)",
-          "global_interval": "Maps, trends, player counts and leaderboards refresh (seconds)"
+          "global_interval": "Maps, trends, player counts and leaderboards refresh (seconds)",
+          "profile_source": "Player statistics source",
+          "matches_source": "Match history source",
+          "community_api_base_url": "Community API base URL"
         },
         "data_description": {
           "api_base_url": "Base address of your statistics API. The integration uses this address for private player data.",
@@ -62,68 +65,171 @@
           "analytics_interval": "How often to check recorded-match summaries and breakdowns while personal polling is active.",
           "history_interval": "How often to check personal history and rank snapshots while personal polling is active.",
           "archive_interval": "How often to check optional class XP and inventory snapshots while personal polling is active.",
-          "global_interval": "How often to refresh shared game data. This continues even when personal polling is idle."
+          "global_interval": "How often to refresh shared game data. This continues even when personal polling is idle.",
+          "profile_source": "Blocklytics remains the default. community API uses an independent BFAPI without creating duplicate entities.",
+          "matches_source": "Select a provider for match history independently.",
+          "community_api_base_url": "Independent second provider base URL including /api/v1/. Does not change the primary source address."
         }
       }
     },
     "error": {
-        "invalid_api_url": "Enter a valid HTTP or HTTPS API base URL without credentials, query, or fragment."
+      "invalid_api_url": "Enter a valid HTTP or HTTPS API base URL without credentials, query, or fragment."
     }
   },
   "entity": {
     "button": {
-      "refresh_all": {"name": "Refresh all data"}
+      "refresh_all": {
+        "name": "Refresh all data"
+      }
     },
     "sensor": {
-      "kills": {"name": "Kills"},
-      "exp_since_observation": {"name": "XP since last observation"},
-      "kills_since_observation": {"name": "Kills since last observation"},
-      "deaths_since_observation": {"name": "Deaths since last observation"},
-      "total_games_since_observation": {"name": "Matches since last observation"},
-      "time_played_since_observation": {"name": "Play time since last observation"},
-      "head_shots_since_observation": {"name": "Headshots since last observation"},
-      "deaths": {"name": "Deaths"},
-      "kd_ratio": {"name": "Kill/death ratio"},
-      "head_shots": {"name": "Headshots"},
-      "first_bloods": {"name": "First bloods"},
-      "no_scopes": {"name": "No-scopes"},
-      "total_games": {"name": "Matches played"},
-      "time_played": {"name": "Time played"},
-      "rank": {"name": "Rank"},
-      "prestige": {"name": "Prestige"},
-      "assists": {"name": "Assists"},
-      "back_stabs": {"name": "Back stabs"},
-      "bot_kills": {"name": "Bot kills"},
-      "captures": {"name": "Captures"},
-      "exp": {"name": "Experience"},
-      "class_exp": {"name": "Class XP"},
-      "fire_kills": {"name": "Fire kills"},
-      "heal_assists": {"name": "Healing assists"},
-      "highest_death_streak": {"name": "Highest death streak"},
-      "highest_kill_streak": {"name": "Highest kill streak"},
-      "hs_kr": {"name": "Headshot kill ratio"},
-      "infected_kills": {"name": "Infected kills"},
-      "infected_matches_won": {"name": "Infected matches won"},
-      "infected_rounds_won": {"name": "Infected rounds won"},
-      "match_karma": {"name": "Match karma"},
-      "objective_score": {"name": "Objective score"},
-      "trophies": {"name": "Trophies"},
-      "vehicle_kills": {"name": "Vehicle kills"},
-      "skill_rank": {"name": "Skill rank"},
-      "clan": {"name": "Clan"},
-      "latest_match": {"name": "Latest match"},
-      "latest_match_score": {"name": "Latest match score"},
-      "online_players": {"name": "Players online"},
-      "cloud_polling_status": {"name": "Online data source status"},
-      "service_status": {"name": "Statistics service status"},
-      "tracked_matches": {"name": "Tracked matches"},
-      "recorded_wins": {"name": "Recorded wins"},
-      "recorded_losses": {"name": "Recorded losses"},
-      "recorded_win_rate": {"name": "Recorded win rate"},
-      "average_match_score": {"name": "Average recorded match score"},
-      "most_played_map": {"name": "Most played map"},
-      "latest_match_duration": {"name": "Latest match duration"},
-      "latest_match_end": {"name": "Latest match end"},
+      "kills": {
+        "name": "Kills"
+      },
+      "exp_since_observation": {
+        "name": "XP since last observation"
+      },
+      "kills_since_observation": {
+        "name": "Kills since last observation"
+      },
+      "deaths_since_observation": {
+        "name": "Deaths since last observation"
+      },
+      "total_games_since_observation": {
+        "name": "Matches since last observation"
+      },
+      "time_played_since_observation": {
+        "name": "Play time since last observation"
+      },
+      "head_shots_since_observation": {
+        "name": "Headshots since last observation"
+      },
+      "deaths": {
+        "name": "Deaths"
+      },
+      "kd_ratio": {
+        "name": "Kill/death ratio"
+      },
+      "head_shots": {
+        "name": "Headshots"
+      },
+      "first_bloods": {
+        "name": "First bloods"
+      },
+      "no_scopes": {
+        "name": "No-scopes"
+      },
+      "total_games": {
+        "name": "Matches played"
+      },
+      "time_played": {
+        "name": "Time played"
+      },
+      "rank": {
+        "name": "Rank"
+      },
+      "prestige": {
+        "name": "Prestige"
+      },
+      "assists": {
+        "name": "Assists"
+      },
+      "back_stabs": {
+        "name": "Back stabs"
+      },
+      "bot_kills": {
+        "name": "Bot kills"
+      },
+      "captures": {
+        "name": "Captures"
+      },
+      "exp": {
+        "name": "Experience"
+      },
+      "class_exp": {
+        "name": "Class XP"
+      },
+      "fire_kills": {
+        "name": "Fire kills"
+      },
+      "heal_assists": {
+        "name": "Healing assists"
+      },
+      "highest_death_streak": {
+        "name": "Highest death streak"
+      },
+      "highest_kill_streak": {
+        "name": "Highest kill streak"
+      },
+      "hs_kr": {
+        "name": "Headshot kill ratio"
+      },
+      "infected_kills": {
+        "name": "Infected kills"
+      },
+      "infected_matches_won": {
+        "name": "Infected matches won"
+      },
+      "infected_rounds_won": {
+        "name": "Infected rounds won"
+      },
+      "match_karma": {
+        "name": "Match karma"
+      },
+      "objective_score": {
+        "name": "Objective score"
+      },
+      "trophies": {
+        "name": "Trophies"
+      },
+      "vehicle_kills": {
+        "name": "Vehicle kills"
+      },
+      "skill_rank": {
+        "name": "Skill rank"
+      },
+      "clan": {
+        "name": "Clan"
+      },
+      "latest_match": {
+        "name": "Latest match"
+      },
+      "latest_match_score": {
+        "name": "Latest match score"
+      },
+      "online_players": {
+        "name": "Players online"
+      },
+      "cloud_polling_status": {
+        "name": "Online data source status"
+      },
+      "service_status": {
+        "name": "Statistics service status"
+      },
+      "tracked_matches": {
+        "name": "Tracked matches"
+      },
+      "recorded_wins": {
+        "name": "Recorded wins"
+      },
+      "recorded_losses": {
+        "name": "Recorded losses"
+      },
+      "recorded_win_rate": {
+        "name": "Recorded win rate"
+      },
+      "average_match_score": {
+        "name": "Average recorded match score"
+      },
+      "most_played_map": {
+        "name": "Most played map"
+      },
+      "latest_match_duration": {
+        "name": "Latest match duration"
+      },
+      "latest_match_end": {
+        "name": "Latest match end"
+      },
       "api_polling_status": {
         "name": "Statistics API request status",
         "state": {
@@ -132,21 +238,47 @@
           "rate_limited": "Rate limited"
         }
       },
-      "api_requests_remaining": {"name": "Statistics API requests remaining"},
-      "inventory_items": {"name": "Saved inventory items"},
-      "profile_history": {"name": "Recorded profile history"},
-      "competitive_rank_history": {"name": "Recorded competitive rank"},
-      "season_score": {"name": "Current season score"},
-      "map_statistics": {"name": "Maps with statistics"},
-      "population_history": {"name": "Online history readings"},
-      "recorded_game_trends": {"name": "Recorded match trend days"},
-      "player_leaderboard": {"name": "Player leaderboard entries"},
-      "clan_leaderboard": {"name": "Clan leaderboard entries"},
-      "competitive_leaderboard": {"name": "Competitive leaderboard entries"},
-      "featured_map": {"name": "Most played map details"}
+      "api_requests_remaining": {
+        "name": "Statistics API requests remaining"
+      },
+      "inventory_items": {
+        "name": "Saved inventory items"
+      },
+      "profile_history": {
+        "name": "Recorded profile history"
+      },
+      "competitive_rank_history": {
+        "name": "Recorded competitive rank"
+      },
+      "season_score": {
+        "name": "Current season score"
+      },
+      "map_statistics": {
+        "name": "Maps with statistics"
+      },
+      "population_history": {
+        "name": "Online history readings"
+      },
+      "recorded_game_trends": {
+        "name": "Recorded match trend days"
+      },
+      "player_leaderboard": {
+        "name": "Player leaderboard entries"
+      },
+      "clan_leaderboard": {
+        "name": "Clan leaderboard entries"
+      },
+      "competitive_leaderboard": {
+        "name": "Competitive leaderboard entries"
+      },
+      "featured_map": {
+        "name": "Most played map details"
+      }
     },
     "binary_sensor": {
-      "bootcamp": {"name": "Bootcamp"}
+      "bootcamp": {
+        "name": "Bootcamp"
+      }
     }
   }
 }

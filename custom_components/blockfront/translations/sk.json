@@ -43,7 +43,10 @@
           "analytics_interval": "Obnovovanie štatistík zápasov (sekundy)",
           "history_interval": "Obnovovanie osobnej histórie a hodností (sekundy)",
           "archive_interval": "Obnovovanie XP tried a inventára (sekundy)",
-          "global_interval": "Obnovovanie máp, trendov a rebríčkov (sekundy)"
+          "global_interval": "Obnovovanie máp, trendov a rebríčkov (sekundy)",
+          "profile_source": "Zdroj profilových štatistík",
+          "matches_source": "Zdroj histórie zápasov",
+          "community_api_base_url": "Community API – základná URL"
         },
         "data_description": {
           "api_base_url": "Základná adresa tvojej služby so štatistikami. Integrácia ju používa na načítanie osobných údajov hráča.",
@@ -62,7 +65,10 @@
           "analytics_interval": "Ako často kontrolovať súhrny a rozdelenie zaznamenaných zápasov.",
           "history_interval": "Ako často kontrolovať osobnú históriu a hodnosti.",
           "archive_interval": "Ako často kontrolovať voliteľné údaje o XP tried a inventári.",
-          "global_interval": "Ako často obnovovať spoločné údaje hry. Obnovovanie pokračuje aj počas osobnej nečinnosti."
+          "global_interval": "Ako často obnovovať spoločné údaje hry. Obnovovanie pokračuje aj počas osobnej nečinnosti.",
+          "profile_source": "Blocklytics zostáva predvolený. community API používa samostatné BFAPI a zachová existujúce entity.",
+          "matches_source": "Samostatný výber poskytovateľa histórie zápasov.",
+          "community_api_base_url": "Samostatná adresa druhého poskytovateľa vrátane /api/v1/. Neovplyvňuje URL prvého zdroja."
         }
       }
     }
