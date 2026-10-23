@@ -176,6 +176,7 @@ async def test_options_flow_shows_independent_default_intervals(hass) -> None:
     assert defaults == {
         CONF_API_BASE_URL: "",
         CONF_API_KEY: "",
+        OPTION_COMMUNITY_API_BASE_URL: DEFAULT_COMMUNITY_API_BASE_URL,
         **expected_options,
     }
 
