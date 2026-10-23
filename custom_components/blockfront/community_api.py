@@ -35,7 +35,11 @@ class CommunityApi:
             raise ApiError("Community API returned invalid death statistics")
         result = dict(data)
         result["kd"] = round(kills / deaths, 2) if deaths > 0 else float(kills)
-        result["hs_kr"] = round(headshots / kills, 3) if isinstance(headshots, int) and kills > 0 else None
+        result["hs_kr"] = (
+            round(headshots / kills, 3)
+            if isinstance(headshots, int) and kills > 0
+            else None
+        )
         result["source"] = "community_api"
         result["source_stale"] = False  # HTTP returned data; upstream timestamp is not exposed.
         result["source_timestamp"] = None
