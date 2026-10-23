@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from .api import ApiError, BlockFrontApi, CLOUD_API_BASE_URL
+from .api import ApiError, BlockFrontApi, normalize_api_base_url
 
 
 class CommunityApi:
     """Normalize Community API results into existing coordinator sensor keys."""
 
-    def __init__(self, client: BlockFrontApi) -> None:
+    def __init__(self, client: BlockFrontApi, base_url: str) -> None:
         self._client = client
+        self._base_url = normalize_api_base_url(base_url)
 
     async def _fetch(self, endpoint: str, uuid: str) -> dict[str, Any]:
         # This origin has its own scheduler scope and never receives the other
@@ -19,7 +20,7 @@ class CommunityApi:
         return await self._client._get_json(
             endpoint,
             params={"uuid": uuid},
-            base_url=CLOUD_API_BASE_URL,
+            base_url=self._base_url,
             service_name="Community API",
         )
 
