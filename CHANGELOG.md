@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 — 2026-10-23
+
+- Add optional Community API for player profiles and recent match history, with an independently configurable base URL.
+- Allow selecting the profile and matches data source separately while retaining the existing statistics provider as the default.
+- Preserve existing sensor entity IDs, polling controls, and provider credential isolation.
+- Add localized options and integration tests for the Community API adapter.
+
 ## 0.5.1 — 2026-10-22
 
 - Render the optional activity entity as a native Home Assistant entity selector so it can be selected or changed in integration settings.
