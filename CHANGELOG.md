@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2 — 2026-10-23
+
+- Restore the approved compact, light three-column dashboard design.
+- Align the example's latest-match and freshness details with the scraped page fields.
+- Correct the frontend card dependency list and remove stale dashboard variants.
+
 ## 0.8.1 — 2026-10-23
 
 - Update the dashboard example to use scraped rank progression and the current match fields.

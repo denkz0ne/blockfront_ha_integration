@@ -39,7 +39,7 @@ The integration also includes local rank and skill-rank pictures. The Vuis site 
 
 A ready-to-paste three-column Home Assistant view is available in [examples/blockfront-dashboard.yaml](examples/blockfront-dashboard.yaml). It groups profile and progression, personal statistics, matches, online population, and trends in a light, compact style.
 
-The example uses entity IDs for the BlockFront username `denkz0ne`; replace them with the IDs created for your configured player. It uses the HACS frontend cards `button-card`, `auto-entities`, `tabbed-card`, `mini-graph-card`, and `card-mod`. Add the file contents as a view in a YAML-mode dashboard. Colors follow Home Assistant theme variables. Rank progression reads the current-rank XP values from the scraped profile. Recent-match details use the fields the player page actually provides, including relative match age; unavailable per-mode online counts and optional entities are omitted.
+The example uses entity IDs for the BlockFront username `denkz0ne`; replace them with the IDs created for your configured player. It uses the HACS frontend cards `button-card`, `tabbed-card`, `apexcharts-card`, and `card-mod`. Add the file contents as a view in a YAML-mode dashboard. The light three-column layout keeps profile and progression, personal statistics, match details, and charts in separate groups. Rank progression reads the current-rank XP values from the scraped profile. Recent-match details use the fields the player page actually provides, including relative match age; unavailable per-mode online counts and optional entities are omitted.
 
 ## Refresh intervals
 
