@@ -31,7 +31,7 @@ from .const import (
     OPTION_PROFILE_SOURCE,
     OPTION_MATCHES_SOURCE,
     SOURCE_BLOCKLYTICS,
-    SOURCE_VUIS,
+    SOURCE_COMMUNITY,
 )
 
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
@@ -157,7 +157,7 @@ class BlockFrontOptionsFlow(OptionsFlow):
         for source_key in (OPTION_PROFILE_SOURCE, OPTION_MATCHES_SOURCE):
             schema[vol.Required(source_key, default=self.config_entry.options.get(source_key, SOURCE_BLOCKLYTICS))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=[SOURCE_BLOCKLYTICS, SOURCE_VUIS],
+                    options=[SOURCE_BLOCKLYTICS, SOURCE_COMMUNITY],
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             )
