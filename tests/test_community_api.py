@@ -5,27 +5,29 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.blockfront.api import ApiError, CLOUD_API_BASE_URL
+from custom_components.blockfront.api import ApiError
+
+TEST_BASE = "https://community.example.invalid/api/v1/"
 from custom_components.blockfront.community_api import CommunityApi
 
 UUID = "85c194ce-8ae5-4736-bf14-7e9bdd204c66"
 
 
 @pytest.mark.asyncio
-async def test_profile_maps_vuis_fields_to_existing_sensor_keys() -> None:
+async def test_profile_maps_community_fields_to_existing_sensor_keys() -> None:
     client = AsyncMock()
     client._get_json.return_value = {
         "uuid": UUID, "username": "denkz0ne", "kills": 120,
         "deaths": 40, "head_shots": 30, "exp": 5000,
         "total_games": 9, "clan": None,
     }
-    result = await CommunityApi(client).async_get_player(UUID)
+    result = await CommunityApi(client, TEST_BASE).async_get_player(UUID)
     assert result["kd"] == 3
     assert result["hs_kr"] == 0.25
     assert result["exp"] == 5000
     assert result["source"] == "community_api"
     client._get_json.assert_awaited_once_with(
-        "player_data", params={"uuid": UUID}, base_url=CLOUD_API_BASE_URL,
+        "player_data", params={"uuid": UUID}, base_url=self._base_url,
         service_name="Community API",
     )
 
