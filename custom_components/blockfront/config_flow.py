@@ -28,12 +28,12 @@ from .const import (
     OPTION_ADAPTIVE_POLLING,
     OPTION_IDLE_HEARTBEAT,
     OPTION_PRESENCE_MODE,
-    OPTION_PROFILE_SOURCE,
+    DEFAULT_COMMUNITY_API_BASE_URL,
+    OPTION_COMMUNITY_API_BASE_URL,
     OPTION_MATCHES_SOURCE,
+    OPTION_PROFILE_SOURCE,
     SOURCE_BLOCKLYTICS,
     SOURCE_COMMUNITY,
-    OPTION_COMMUNITY_API_BASE_URL,
-    DEFAULT_COMMUNITY_API_BASE_URL,
 )
 
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
@@ -144,7 +144,12 @@ class BlockFrontOptionsFlow(OptionsFlow):
         )
         schema: dict[vol.Marker, Any] = {
             vol.Required(CONF_API_BASE_URL, default=saved_url): str,
-            vol.Required(OPTION_COMMUNITY_API_BASE_URL, default=self.config_entry.options.get(OPTION_COMMUNITY_API_BASE_URL, DEFAULT_COMMUNITY_API_BASE_URL)): str,
+            vol.Required(
+                OPTION_COMMUNITY_API_BASE_URL,
+                default=self.config_entry.options.get(
+                    OPTION_COMMUNITY_API_BASE_URL, DEFAULT_COMMUNITY_API_BASE_URL
+                ),
+            ): str,
             vol.Optional(CONF_API_KEY, default=""): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
             ),
@@ -168,7 +173,12 @@ class BlockFrontOptionsFlow(OptionsFlow):
                 vol.Range(min=MIN_INTERVALS[key], max=MAX_INTERVAL_SECONDS),
             )
         for source_key in (OPTION_PROFILE_SOURCE, OPTION_MATCHES_SOURCE):
-            schema[vol.Required(source_key, default=self.config_entry.options.get(source_key, SOURCE_BLOCKLYTICS))] = selector.SelectSelector(
+            schema[
+                vol.Required(
+                    source_key,
+                    default=self.config_entry.options.get(source_key, SOURCE_BLOCKLYTICS),
+                )
+            ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[SOURCE_BLOCKLYTICS, SOURCE_COMMUNITY],
                     mode=selector.SelectSelectorMode.DROPDOWN,
