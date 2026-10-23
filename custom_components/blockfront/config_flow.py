@@ -32,6 +32,8 @@ from .const import (
     OPTION_MATCHES_SOURCE,
     SOURCE_BLOCKLYTICS,
     SOURCE_COMMUNITY,
+    OPTION_COMMUNITY_API_BASE_URL,
+    DEFAULT_COMMUNITY_API_BASE_URL,
 )
 
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
@@ -116,6 +118,16 @@ class BlockFrontOptionsFlow(OptionsFlow):
                     data_schema=self._schema(),
                     errors={CONF_API_BASE_URL: "invalid_api_url"},
                 )
+            try:
+                user_input[OPTION_COMMUNITY_API_BASE_URL] = normalize_api_base_url(
+                    user_input[OPTION_COMMUNITY_API_BASE_URL]
+                )
+            except (KeyError, ValueError):
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=self._schema(),
+                    errors={OPTION_COMMUNITY_API_BASE_URL: "invalid_api_url"},
+                )
             saved_key = self.config_entry.options.get(CONF_API_KEY) or self.config_entry.data.get(
                 CONF_API_KEY, ""
             )
@@ -132,6 +144,7 @@ class BlockFrontOptionsFlow(OptionsFlow):
         )
         schema: dict[vol.Marker, Any] = {
             vol.Required(CONF_API_BASE_URL, default=saved_url): str,
+            vol.Required(OPTION_COMMUNITY_API_BASE_URL, default=self.config_entry.options.get(OPTION_COMMUNITY_API_BASE_URL, DEFAULT_COMMUNITY_API_BASE_URL)): str,
             vol.Optional(CONF_API_KEY, default=""): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
             ),
