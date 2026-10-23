@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1 — 2026-10-23
+
+- Update the dashboard example to use scraped rank progression and the current match fields.
+- Remove unavailable per-mode online sensors and hide optional statistic cards when their entities are absent.
+- Drop clan details from the personal dashboard and clarify that scraped match times are relative.
+
 ## 0.8.0 — 2026-10-23
 
 - Replace the retired player JSON endpoint with scraping of the current public Vuis player and recent-match pages.
