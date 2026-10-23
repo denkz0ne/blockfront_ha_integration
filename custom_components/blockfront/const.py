@@ -19,6 +19,8 @@ OPTION_PROFILE_SOURCE = "profile_source"
 OPTION_MATCHES_SOURCE = "matches_source"
 SOURCE_BLOCKLYTICS = "blocklytics"
 SOURCE_COMMUNITY = "community"
+OPTION_COMMUNITY_API_BASE_URL = "community_api_base_url"
+DEFAULT_COMMUNITY_API_BASE_URL = "https://blockfrontapi.vuis.dev/api/v1/"
 
 OPTION_PROFILE_INTERVAL = "profile_interval"
 OPTION_MATCHES_INTERVAL = "matches_interval"
