@@ -30,6 +30,8 @@ from .const import (
     OPTION_MATCHES_SOURCE,
     SOURCE_BLOCKLYTICS,
     SOURCE_COMMUNITY,
+    OPTION_COMMUNITY_API_BASE_URL,
+    DEFAULT_COMMUNITY_API_BASE_URL,
     UPDATE_INTERVALS,
     get_update_interval,
 )
@@ -217,16 +219,16 @@ def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntime
     api_key = options.get(CONF_API_KEY) or entry.data.get(CONF_API_KEY)
     api_base_url = options.get(CONF_API_BASE_URL) or entry.data.get(CONF_API_BASE_URL)
     api = BlockFrontApi(async_get_clientsession(hass), api_key=api_key, api_base_url=api_base_url)
-    vuis = CommunityApi(api)
+    community = CommunityApi(api, options.get(OPTION_COMMUNITY_API_BASE_URL, DEFAULT_COMMUNITY_API_BASE_URL))
 
     async def fetch_profile() -> dict[str, Any]:
         if options.get(OPTION_PROFILE_SOURCE, SOURCE_BLOCKLYTICS) == SOURCE_COMMUNITY:
-            return await vuis.async_get_player(entry.data["player_uuid"])
+            return await community.async_get_player(entry.data["player_uuid"])
         return await api.async_get_player(entry.data["player_uuid"])
 
     async def fetch_matches() -> dict[str, Any]:
         if options.get(OPTION_MATCHES_SOURCE, SOURCE_BLOCKLYTICS) == SOURCE_COMMUNITY:
-            return await vuis.async_get_match_data(entry.data["player_uuid"])
+            return await community.async_get_match_data(entry.data["player_uuid"])
         return await api.async_get_match_data(entry.data["player_uuid"])
 
     async def fetch_status() -> dict[str, Any]:
