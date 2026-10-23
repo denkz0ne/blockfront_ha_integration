@@ -45,7 +45,8 @@
           "archive_interval": "Class XP and inventory refresh (seconds)",
           "global_interval": "Maps, trends, player counts and leaderboards refresh (seconds)",
           "profile_source": "Player statistics source",
-          "matches_source": "Match history source"
+          "matches_source": "Match history source",
+          "community_api_base_url": "Community API base URL"
         },
         "data_description": {
           "api_base_url": "Base address of your statistics API. The integration uses this address for private player data.",
@@ -66,7 +67,8 @@
           "archive_interval": "How often to check optional class XP and inventory snapshots while personal polling is active.",
           "global_interval": "How often to refresh shared game data. This continues even when personal polling is idle.",
           "profile_source": "Blocklytics remains the default. community API uses an independent BFAPI without creating duplicate entities.",
-          "matches_source": "Select a provider for match history independently."
+          "matches_source": "Select a provider for match history independently.",
+          "community_api_base_url": "Independent second provider base URL including /api/v1/. Does not change the primary source address."
         }
       }
     },
