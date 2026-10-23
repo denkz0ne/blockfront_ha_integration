@@ -28,6 +28,10 @@ from .const import (
     OPTION_ADAPTIVE_POLLING,
     OPTION_IDLE_HEARTBEAT,
     OPTION_PRESENCE_MODE,
+    OPTION_PROFILE_SOURCE,
+    OPTION_MATCHES_SOURCE,
+    SOURCE_BLOCKLYTICS,
+    SOURCE_VUIS,
 )
 
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
@@ -141,12 +145,21 @@ class BlockFrontOptionsFlow(OptionsFlow):
                 OPTION_ADAPTIVE_POLLING,
                 OPTION_ADAPTIVE_MARGIN,
                 OPTION_PRESENCE_MODE,
+                OPTION_PROFILE_SOURCE,
+                OPTION_MATCHES_SOURCE,
             }:
                 continue
             saved_value = self.config_entry.options.get(key, default)
             schema[vol.Required(key, default=saved_value)] = vol.All(
                 vol.Coerce(int),
                 vol.Range(min=MIN_INTERVALS[key], max=MAX_INTERVAL_SECONDS),
+            )
+        for source_key in (OPTION_PROFILE_SOURCE, OPTION_MATCHES_SOURCE):
+            schema[vol.Required(source_key, default=self.config_entry.options.get(source_key, SOURCE_BLOCKLYTICS))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[SOURCE_BLOCKLYTICS, SOURCE_VUIS],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
             )
         entity_default = self.config_entry.options.get(OPTION_ACTIVITY_ENTITY)
         entity_marker = (
