@@ -25,13 +25,13 @@ from .const import (
     OPTION_ADAPTIVE_MARGIN,
     OPTION_ADAPTIVE_POLLING,
     OPTION_IDLE_HEARTBEAT,
+    DEFAULT_COMMUNITY_API_BASE_URL,
+    OPTION_COMMUNITY_API_BASE_URL,
+    OPTION_MATCHES_SOURCE,
     OPTION_PRESENCE_MODE,
     OPTION_PROFILE_SOURCE,
-    OPTION_MATCHES_SOURCE,
     SOURCE_BLOCKLYTICS,
     SOURCE_COMMUNITY,
-    OPTION_COMMUNITY_API_BASE_URL,
-    DEFAULT_COMMUNITY_API_BASE_URL,
     UPDATE_INTERVALS,
     get_update_interval,
 )
@@ -219,7 +219,9 @@ def create_runtime(hass: HomeAssistant, entry: ConfigEntry) -> BlockFrontRuntime
     api_key = options.get(CONF_API_KEY) or entry.data.get(CONF_API_KEY)
     api_base_url = options.get(CONF_API_BASE_URL) or entry.data.get(CONF_API_BASE_URL)
     api = BlockFrontApi(async_get_clientsession(hass), api_key=api_key, api_base_url=api_base_url)
-    community = CommunityApi(api, options.get(OPTION_COMMUNITY_API_BASE_URL, DEFAULT_COMMUNITY_API_BASE_URL))
+    community = CommunityApi(
+        api, options.get(OPTION_COMMUNITY_API_BASE_URL, DEFAULT_COMMUNITY_API_BASE_URL)
+    )
 
     async def fetch_profile() -> dict[str, Any]:
         if options.get(OPTION_PROFILE_SOURCE, SOURCE_BLOCKLYTICS) == SOURCE_COMMUNITY:
