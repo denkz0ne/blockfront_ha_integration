@@ -88,9 +88,12 @@ async def test_real_public_setup_registers_only_public_entities(hass):
             else {"player": {"rank": 12, "score": 488}}
         )
 
-    with patch(
-        "custom_components.blockfront.official_runtime.OfficialApi.get", side_effect=payload
-    ) as get:
+    with (
+        patch("custom_components.blockfront.official_runtime.async_get_clientsession"),
+        patch(
+            "custom_components.blockfront.official_runtime.OfficialApi.get", side_effect=payload
+        ) as get,
+    ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         registry = er.async_get(hass)
@@ -115,9 +118,12 @@ async def test_authorized_setup_keeps_legacy_ids_and_discovers_new_fields(hass):
         },
     )
     entry.add_to_hass(hass)
-    with patch(
-        "custom_components.blockfront.official_runtime.OfficialApi.get",
-        new=AsyncMock(return_value={"stats": {"kills": 100, "extraPoints": 77}}),
+    with (
+        patch("custom_components.blockfront.official_runtime.async_get_clientsession"),
+        patch(
+            "custom_components.blockfront.official_runtime.OfficialApi.get",
+            new=AsyncMock(return_value={"stats": {"kills": 100, "extraPoints": 77}}),
+        ),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
