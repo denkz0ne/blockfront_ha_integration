@@ -173,6 +173,10 @@ def create_official_runtime(hass, entry, rows):
         entry.options.get("api_key", entry.data.get("api_key", "")),
     )
     endpoints = {row["endpoint"] for row in rows if selected(entry, row)}
+    if api.api_key and any(
+        k.startswith("official_stat_") for k in entry.options.get("enabled_metrics", [])
+    ):
+        endpoints.add("player")
     if "clan" in endpoints:
         endpoints.add("player")
     if "match" in endpoints:

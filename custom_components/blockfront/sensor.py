@@ -20,6 +20,31 @@ async def async_setup_entry(hass, entry, async_add_entities):
         ]
     )
 
+    profile = runtime["coordinators"].get("player")
+    if profile is not None:
+        discovered = set()
+        known = {
+            r.get("value_key", r["key"]) for r in runtime["catalog"] if r["endpoint"] == "player"
+        }
+
+        def discover_fields():
+            values = (profile.data or {}).get("values", {})
+            for key, value in values.items():
+                if not key.startswith("official_stat_") or key in discovered or value is None:
+                    continue
+                original = key.removeprefix("official_stat_")
+                if original in known or original == "timePlayedSeconds":
+                    continue
+                row = {"key": key, "endpoint": "player", "name": f"Official profile: {original}"}
+                discovered.add(key)
+                runtime["catalog"].append(row)
+                # Unknown fields require explicit selection; never reuse career IDs/units.
+                if key in entry.options.get("enabled_metrics", []):
+                    async_add_entities([OfficialSensor(profile, entry, row)])
+
+        entry.async_on_unload(profile.async_add_listener(discover_fields))
+        discover_fields()
+
 
 class OfficialSensor(CoordinatorEntity, SensorEntity):
     """Never change measurement identity when switching access modes."""

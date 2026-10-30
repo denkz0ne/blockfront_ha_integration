@@ -167,6 +167,11 @@ def values_for(endpoint, payload, *, selected_map="", mode="dom", team="Allies")
         values["bootcamp"] = (
             stats.get("bootcamp") if isinstance(stats.get("bootcamp"), bool) else None
         )
+        for key, value in stats.items():
+            if isinstance(key, str) and (number(value) is not None or isinstance(value, str)):
+                values[f"official_stat_{key}"] = (
+                    value if not isinstance(value, str) or len(value) <= 255 else None
+                )
         # A bare time_played field has no documented unit. Never mix it into seconds.
         values["time_played"] = number(stats.get("timePlayedSeconds"))
         for ratio, numerator, denominator in (

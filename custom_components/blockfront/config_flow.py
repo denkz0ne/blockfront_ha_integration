@@ -73,6 +73,9 @@ class BlockFrontOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input=None):
         entry = self.config_entry
         rows = await self.hass.async_add_executor_job(catalog)
+        runtime = getattr(entry, "runtime_data", None)
+        if isinstance(runtime, dict):
+            rows += [r for r in runtime.get("catalog", []) if r["key"].startswith("official_stat_")]
         errors = {}
         if user_input is not None:
             try:
