@@ -17,7 +17,9 @@ LOGGER = logging.getLogger(__name__)
 
 def catalog():
     """Return stable legacy metric identities and explicitly new official metrics."""
-    rows = json.loads(Path(__file__).with_name("official_entities.json").read_text())
+    rows = json.loads(
+        Path(__file__).with_name("official_entities.json").read_text(encoding="utf-8")
+    )
     rows.append(
         {
             "key": "bootcamp",
@@ -26,7 +28,7 @@ def catalog():
             "platform": "binary_sensor",
         }
     )
-    translations = json.loads(Path(__file__).with_name("strings.json").read_text())
+    translations = json.loads(Path(__file__).with_name("strings.json").read_text(encoding="utf-8"))
     for row in rows:
         if "name" not in row:
             row["name"] = (
@@ -51,6 +53,10 @@ def catalog():
         new.append((f"map_{key}", "map_ratings", f"Selected map {key}", None))
     for key in ("axisScore", "alliedScore", "axisCasualties", "alliedCasualties"):
         new.append((f"match_{key}", "match", f"Latest match {key}", None))
+    for key in ("count", "average", *(f"stars_{n}" for n in range(6))):
+        new.append((f"team_rating_{key}", "map_ratings", f"Selected team rating {key}", None))
+    for key in ("score", "rank"):
+        new.append((f"brigade_monthly_{key}", "clan", f"Brigade monthly {key}", None))
     for class_id in range(10):
         rows.append(
             {
@@ -89,7 +95,9 @@ def selected(entry, row):
     configured = entry.options.get("enabled_metrics")
     if configured is not None:
         return row["key"] in configured
-    return row["endpoint"] not in {"clan", "match"} and not row["key"].startswith("map_")
+    return row["endpoint"] not in {"clan", "match"} and not row["key"].startswith(
+        ("map_", "team_rating_")
+    )
 
 
 class EndpointCoordinator(DataUpdateCoordinator):

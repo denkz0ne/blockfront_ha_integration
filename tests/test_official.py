@@ -151,3 +151,39 @@ def test_no_profile_key_guessing_or_hidden_player_data():
 def test_url_rejects_credential_and_query(url):
     with pytest.raises(ValueError):
         normalize_url(url)
+
+
+def test_map_ratings_include_zero_star_votes_and_selected_team():
+    payload = {
+        "maps": [
+            {
+                "map": "Storm",
+                "modes": [
+                    {
+                        "mode": "dom",
+                        "ratings": 120,
+                        "average": 4.2,
+                        "stars": {"0": 2, "5": 60},
+                        "teams": {"Allies": {"ratings": 60, "average": 4.1, "stars": {"5": 28}}},
+                    }
+                ],
+            }
+        ]
+    }
+    values, attrs = values_for("map_ratings", payload, selected_map="Storm")
+    assert values["map_ratings"] == 120
+    assert values["map_stars_0"] == 2
+    assert values["team_rating_count"] == 60
+    assert values["team_rating_stars_5"] == 28
+    assert attrs["selected_rating_team"] == "Allies"
+
+
+def test_profile_ratios_derive_only_from_matching_totals_and_seconds_are_explicit():
+    values, _ = values_for(
+        "player", {"stats": {"kills": 10, "deaths": 5, "head_shots": 4, "time_played": 9000}}
+    )
+    assert values["kd"] == 2
+    assert values["hs_kr"] == 0.4
+    assert values["time_played"] is None
+    values, _ = values_for("player", {"stats": {"timePlayedSeconds": 300}})
+    assert values["time_played"] == 300

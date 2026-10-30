@@ -244,11 +244,28 @@ def values_for(endpoint, payload, *, selected_map="", mode="dom", team="Allies")
         attrs.update(
             map=selected_map or None, mode=mode, team=team if endpoint == "map_stats" else None
         )
+        if endpoint == "map_ratings":
+            rating_team = teams.get(team, {})
+            if not isinstance(rating_team, dict):
+                raise OfficialError("Invalid team ratings")
+            values["team_rating_count"] = number(rating_team.get("ratings"))
+            values["team_rating_average"] = number(rating_team.get("average"))
+            team_stars = rating_team.get("stars", {})
+            for star in range(6):
+                values[f"team_rating_stars_{star}"] = (
+                    number(team_stars.get(str(star))) if isinstance(team_stars, dict) else None
+                )
+            attrs["selected_rating_team"] = team
     elif endpoint == "clan":
         values.update(
             brigade_members=number(payload.get("memberCount")),
             brigade_founded=timestamp(payload.get("founded")),
         )
+        score = payload.get("score")
+        if isinstance(score, dict):
+            values["brigade_monthly_score"] = number(score.get("monthly"))
+            values["brigade_monthly_rank"] = number(score.get("rank"))
+        attrs.update(tag=payload.get("tag"), name=payload.get("name"))
     elif endpoint == "match":
         values.update(
             {
