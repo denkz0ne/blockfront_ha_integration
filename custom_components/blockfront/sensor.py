@@ -2,6 +2,7 @@
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.const import EntityCategory
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -40,6 +41,16 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 runtime["catalog"].append(row)
                 # Unknown fields require explicit selection; never reuse career IDs/units.
                 if key in entry.options.get("enabled_metrics", []):
+                    registry = er.async_get(hass)
+                    entity_id = registry.async_get_entity_id(
+                        "sensor", "blockfront", f"{entry.data['player_uuid']}_{key}"
+                    )
+                    registered = registry.async_get(entity_id) if entity_id else None
+                    if (
+                        registered
+                        and registered.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+                    ):
+                        registry.async_update_entity(entity_id, disabled_by=None)
                     async_add_entities([OfficialSensor(profile, entry, row)])
 
         entry.async_on_unload(profile.async_add_listener(discover_fields))

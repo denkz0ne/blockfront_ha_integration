@@ -99,3 +99,30 @@ async def test_real_public_setup_registers_only_public_entities(hass):
         assert registry.async_get_entity_id("sensor", "blockfront", f"{UUID}_kills") is None
         assert {call.args[0] for call in get.call_args_list} == {"player_count", "scoreboard"}
         assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_authorized_setup_keeps_legacy_ids_and_discovers_new_fields(hass):
+    from homeassistant.helpers import entity_registry as er
+
+    entry = MockConfigEntry(
+        domain="blockfront",
+        version=4,
+        unique_id=UUID,
+        data={"username": "denkz0ne", "player_uuid": UUID, "api_base_url": DEFAULT_URL},
+        options={
+            "api_key": "official-key",
+            "enabled_metrics": ["kills", "official_stat_extraPoints"],
+        },
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.blockfront.official_runtime.OfficialApi.get",
+        new=AsyncMock(return_value={"stats": {"kills": 100, "extraPoints": 77}}),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        registry = er.async_get(hass)
+        for key, expected in (("kills", "100"), ("official_stat_extraPoints", "77")):
+            entity_id = registry.async_get_entity_id("sensor", "blockfront", f"{UUID}_{key}")
+            assert hass.states.get(entity_id).state == expected
+        assert await hass.config_entries.async_unload(entry.entry_id)
