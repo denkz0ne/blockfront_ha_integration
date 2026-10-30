@@ -59,6 +59,7 @@ async def test_options_add_and_remove_key_preserve_metric_selection(hass):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options["api_key"] == "official-test-key"
     assert "kills" in entry.options["enabled_metrics"]
+
     assert "online_players" in entry.options["enabled_metrics"]
     form = await hass.config_entries.options.async_init(entry.entry_id)
     submitted = form["data_schema"]({"remove_api_key": True})
@@ -66,3 +67,35 @@ async def test_options_add_and_remove_key_preserve_metric_selection(hass):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options["api_key"] == ""
     assert "kills" in entry.options["enabled_metrics"]
+
+
+async def test_real_public_setup_registers_only_public_entities(hass):
+    from homeassistant.helpers import entity_registry as er
+
+    entry = MockConfigEntry(
+        domain="blockfront",
+        version=4,
+        unique_id=UUID,
+        data={"username": "denkz0ne", "player_uuid": UUID, "api_base_url": DEFAULT_URL},
+        options={"enabled_metrics": ["online_players", "monthly_score", "kills"]},
+    )
+    entry.add_to_hass(hass)
+
+    async def payload(endpoint, **params):
+        return (
+            {"playersOnline": 17}
+            if endpoint == "player_count"
+            else {"player": {"rank": 12, "score": 488}}
+        )
+
+    with patch(
+        "custom_components.blockfront.official_runtime.OfficialApi.get", side_effect=payload
+    ) as get:
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        registry = er.async_get(hass)
+        online_id = registry.async_get_entity_id("sensor", "blockfront", f"{UUID}_online_players")
+        assert hass.states.get(online_id).state == "17"
+        assert registry.async_get_entity_id("sensor", "blockfront", f"{UUID}_kills") is None
+        assert {call.args[0] for call in get.call_args_list} == {"player_count", "scoreboard"}
+        assert await hass.config_entries.async_unload(entry.entry_id)
