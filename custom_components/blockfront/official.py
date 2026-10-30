@@ -167,6 +167,15 @@ def values_for(endpoint, payload, *, selected_map="", mode="dom", team="Allies")
         values["bootcamp"] = (
             stats.get("bootcamp") if isinstance(stats.get("bootcamp"), bool) else None
         )
+        # A bare time_played field has no documented unit. Never mix it into seconds.
+        values["time_played"] = number(stats.get("timePlayedSeconds"))
+        for ratio, numerator, denominator in (
+            ("kd", "kills", "deaths"),
+            ("hs_kr", "head_shots", "kills"),
+        ):
+            a, b = number(stats.get(numerator)), number(stats.get(denominator))
+            if values.get(ratio) is None and a is not None and b is not None and b > 0:
+                values[ratio] = a / b
         rank = payload.get("rank")
         values["rank"] = rank.get("title") if isinstance(rank, dict) else None
         clan = payload.get("clan")
@@ -175,6 +184,8 @@ def values_for(endpoint, payload, *, selected_map="", mode="dom", team="Allies")
         if isinstance(classes, dict) and all(number(v) is not None for v in classes.values()):
             values["class_exp"] = sum(classes.values())
             attrs["class_exp"] = classes
+            for class_id in range(10):
+                values[f"class_exp_{class_id}"] = number(classes.get(str(class_id)))
         skill = stats.get("skill_rank")
         values["skill_rank"] = skill.get("title") if isinstance(skill, dict) else None
     elif endpoint == "player_matches":

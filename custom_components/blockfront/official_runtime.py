@@ -26,6 +26,15 @@ def catalog():
             "platform": "binary_sensor",
         }
     )
+    translations = json.loads(Path(__file__).with_name("strings.json").read_text())
+    for row in rows:
+        if "name" not in row:
+            row["name"] = (
+                translations.get("entity", {})
+                .get("sensor", {})
+                .get(row["key"], {})
+                .get("name", row["key"].replace("_", " ").title())
+            )
     new = [
         ("monthly_score", "scoreboard", "Monthly score", "points"),
         ("monthly_rank", "scoreboard", "Monthly position", None),
@@ -42,6 +51,16 @@ def catalog():
         new.append((f"map_{key}", "map_ratings", f"Selected map {key}", None))
     for key in ("axisScore", "alliedScore", "axisCasualties", "alliedCasualties"):
         new.append((f"match_{key}", "match", f"Latest match {key}", None))
+    for class_id in range(10):
+        rows.append(
+            {
+                "key": f"class_exp_{class_id}",
+                "endpoint": "player",
+                "name": f"Class {class_id} experience",
+                "native_unit_of_measurement": "XP",
+                "state_class": "total_increasing",
+            }
+        )
     for key, endpoint, name, unit in new:
         row = {"key": key, "endpoint": endpoint, "name": name}
         if unit:
@@ -131,6 +150,8 @@ class EndpointCoordinator(DataUpdateCoordinator):
                 team=self.entry.options.get("selected_team", "Allies"),
             )
         except OfficialError as err:
+            if err.status in (401, 403):
+                self.data = None
             raise UpdateFailed(str(err)) from err
         attributes["last_successful_update"] = datetime.now(UTC).isoformat()
         return {"values": values, "attributes": attributes, "raw": payload}

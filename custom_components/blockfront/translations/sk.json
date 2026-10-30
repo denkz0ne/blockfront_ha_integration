@@ -2,20 +2,20 @@
   "config": {
     "step": {
       "user": {
-        "title": "BlockFront Official API",
-        "description": "Public data works without a key. Enter your UUID to preserve a stable player identity. Only official keys are accepted.",
+        "title": "Oficiálne BlockFront API",
+        "description": "Verejné údaje fungujú bez kľúča. UUID zachová stabilnú identitu hráča. Voliteľný kľúč musí byť vydaný pre oficiálne API.",
         "data": {
-          "username": "Player name",
-          "player_uuid": "Player UUID",
-          "api_base_url": "Official API base URL",
-          "api_key": "Official API key (optional)"
+          "username": "Hráčske meno",
+          "player_uuid": "UUID hráča",
+          "api_base_url": "Základná adresa oficiálneho API",
+          "api_key": "Oficiálny API kľúč (voliteľné)"
         }
       }
     },
     "error": {
       "invalid_username": "Zadaj platné Minecraft meno (3 až 16 písmen, číslic alebo podčiarkovníkov).",
       "invalid_api_url": "Zadaj platnú HTTP alebo HTTPS adresu API bez prihlasovacích údajov, parametrov a fragmentu.",
-      "invalid_player": "Hráča BlockFront sa nepodarilo nájsť.",
+      "invalid_player": "Zadaj platné UUID hráča.",
       "cannot_connect": "K službe so štatistikami BlockFront sa nepodarilo pripojiť. Skús to neskôr."
     },
     "abort": {
@@ -25,26 +25,26 @@
   "options": {
     "step": {
       "init": {
-        "title": "Official API: access and data",
-        "description": "An empty key field keeps the saved key. Use Remove saved API key to return to public-only mode. Private entity identities and recorded history are preserved. Data selection also controls endpoint polling. Map and brigade/match detail metrics are optional.",
+        "title": "Oficiálne API – prístup a údaje",
+        "description": "Prázdne pole kľúča ponechá uložený kľúč. Na jeho vymazanie zapni Odstrániť uložený API kľúč. Výber údajov riadi entity aj načítavanie. Bez kľúča zostávajú osobné entity vypnuté; história sa nemaže.",
         "data": {
-          "username": "Player name",
-          "player_uuid": "Player UUID",
-          "api_base_url": "Official API base URL",
-          "api_key": "Official API key (optional)",
-          "remove_api_key": "Remove saved API key",
-          "enabled_metrics": "Enabled data and entities",
-          "selected_map": "Selected map (exact name)",
-          "selected_mode": "Selected game mode",
-          "selected_team": "Selected team",
-          "player_count_interval": "player_count: refresh interval (seconds)",
-          "scoreboard_interval": "scoreboard: refresh interval (seconds)",
-          "map_stats_interval": "map_stats: refresh interval (seconds)",
-          "map_ratings_interval": "map_ratings: refresh interval (seconds)",
-          "player_interval": "player: refresh interval (seconds)",
-          "player_matches_interval": "player_matches: refresh interval (seconds)",
-          "clan_interval": "clan: refresh interval (seconds)",
-          "match_interval": "match: refresh interval (seconds)"
+          "username": "Hráčske meno",
+          "player_uuid": "UUID hráča",
+          "api_base_url": "Základná adresa oficiálneho API",
+          "api_key": "Oficiálny API kľúč (voliteľné)",
+          "remove_api_key": "Odstrániť uložený API kľúč",
+          "enabled_metrics": "Zapnuté údaje a entity",
+          "selected_map": "Vybraná mapa (presný názov)",
+          "selected_mode": "Vybraný herný režim",
+          "selected_team": "Vybraný tím",
+          "player_count_interval": "Online hráči – interval obnovy (sekundy)",
+          "scoreboard_interval": "Mesačné poradie – interval obnovy (sekundy)",
+          "map_stats_interval": "Štatistiky máp – interval obnovy (sekundy)",
+          "map_ratings_interval": "Hodnotenia máp – interval obnovy (sekundy)",
+          "player_interval": "Osobný profil – interval obnovy (sekundy)",
+          "player_matches_interval": "Osobné zápasy – interval obnovy (sekundy)",
+          "clan_interval": "Brigáda – interval obnovy (sekundy)",
+          "match_interval": "Detail posledného zápasu – interval obnovy (sekundy)"
         }
       }
     }
