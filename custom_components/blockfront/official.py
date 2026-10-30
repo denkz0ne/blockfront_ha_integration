@@ -85,7 +85,7 @@ class OfficialApi:
             if now < self.backoff_until:
                 raise OfficialError("Official API is in backoff")
             await asyncio.sleep(max(0, self.next_request - now))
-            self.next_request = monotonic() + 0.3
+            self.next_request = monotonic() + 1.0
             headers = {}
             if endpoint in PRIVATE:
                 headers["X-API-Key"] = self.api_key
