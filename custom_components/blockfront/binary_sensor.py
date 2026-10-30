@@ -1,88 +1,33 @@
-"""Boolean profile sensors for BlockFront."""
+"""Optional official profile boolean, with its original entity identity."""
 
-from __future__ import annotations
-
-from typing import Any
-
-from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorEntityDescription
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_PLAYER_UUID, CONF_USERNAME, DOMAIN
-from .coordinator import BlockFrontConfigEntry, BlockFrontCoordinator
-from .sensor import _PlayerNamedEntity
+from .official_runtime import selected
 
 PARALLEL_UPDATES = 0
 
-BINARY_SENSOR_DESCRIPTIONS = (
-    BinarySensorEntityDescription(
-        key="bootcamp",
-        translation_key="bootcamp",
-        icon="mdi:school",
-    ),
-)
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    rows = [
+        r
+        for r in entry.runtime_data["catalog"]
+        if r.get("platform") == "binary_sensor" and selected(entry, r)
+    ]
+    async_add_entities([OfficialBootcamp(entry) for row in rows])
 
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: BlockFrontConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Create boolean profile entities."""
-    coordinator = entry.runtime_data.coordinators["profile"]
-    async_add_entities(
-        BlockFrontBinarySensor(coordinator, entry, description)
-        for description in BINARY_SENSOR_DESCRIPTIONS
-    )
+class OfficialBootcamp(CoordinatorEntity, BinarySensorEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "bootcamp"
+    _attr_icon = "mdi:school"
 
-
-class BlockFrontBinarySensor(
-    _PlayerNamedEntity, CoordinatorEntity[BlockFrontCoordinator], BinarySensorEntity
-):
-    """Represent a boolean BlockFront profile field."""
-
-    entity_description: BinarySensorEntityDescription
-
-    def __init__(
-        self,
-        coordinator: BlockFrontCoordinator,
-        entry: ConfigEntry,
-        description: BinarySensorEntityDescription,
-    ) -> None:
-        super().__init__(coordinator)
-        self.entity_description = description
-        player_uuid = entry.data[CONF_PLAYER_UUID]
-        self._username = entry.data[CONF_USERNAME]
-        self._attr_player_specific_name = True
-        self._attr_unique_id = f"{player_uuid}_{description.key}"
-        self._attr_has_entity_name = True
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, player_uuid)},
-            name=entry.data[CONF_USERNAME],
-            manufacturer="BlockFront",
-            model="Player statistics",
-        )
+    def __init__(self, entry):
+        super().__init__(entry.runtime_data["coordinators"]["player"])
+        self._attr_unique_id = f"{entry.data['player_uuid']}_bootcamp"
+        self._attr_device_info = DeviceInfo(identifiers={("blockfront", entry.data["player_uuid"])})
 
     @property
-    def is_on(self) -> bool | None:
-        """Return the upstream boolean, or unknown when it is missing."""
-        value = (self.coordinator.data or {}).get("value")
-        if not isinstance(value, dict):
-            return None
-        bootcamp = value.get(self.entity_description.key)
-        return bootcamp if isinstance(bootcamp, bool) else None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Distinguish an optional compatibility lookup from the public profile."""
-        data = self.coordinator.data or {}
-        profile = data.get("value") or {}
-        return {
-            "stale": data.get("stale", True) or bool(profile.get("supplement_error")),
-            "last_successful_update": data.get("last_successful_update"),
-            "last_error": profile.get("supplement_error") or data.get("last_error"),
-            "source": profile.get("supplement_source"),
-        }
+    def is_on(self):
+        return (self.coordinator.data or {}).get("values", {}).get("bootcamp")

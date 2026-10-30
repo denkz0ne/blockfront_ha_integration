@@ -1,0 +1,299 @@
+[
+  {
+    "key": "kills",
+    "endpoint": "player",
+    "translation_key": "kills",
+    "value_key": "kills",
+    "icon": "mdi:target",
+    "native_unit_of_measurement": "kills",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "deaths",
+    "endpoint": "player",
+    "translation_key": "deaths",
+    "value_key": "deaths",
+    "icon": "mdi:skull",
+    "native_unit_of_measurement": "deaths",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "kd_ratio",
+    "endpoint": "player",
+    "translation_key": "kd_ratio",
+    "value_key": "kd",
+    "icon": "mdi:scale-balance"
+  },
+  {
+    "key": "head_shots",
+    "endpoint": "player",
+    "translation_key": "head_shots",
+    "value_key": "head_shots",
+    "icon": "mdi:crosshairs",
+    "native_unit_of_measurement": "headshots",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "first_bloods",
+    "endpoint": "player",
+    "translation_key": "first_bloods",
+    "value_key": "first_bloods",
+    "icon": "mdi:water",
+    "native_unit_of_measurement": "first bloods",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "no_scopes",
+    "endpoint": "player",
+    "translation_key": "no_scopes",
+    "value_key": "no_scopes",
+    "icon": "mdi:scope",
+    "native_unit_of_measurement": "no-scopes",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "total_games",
+    "endpoint": "player",
+    "translation_key": "total_games",
+    "value_key": "total_games",
+    "icon": "mdi:gamepad-variant",
+    "native_unit_of_measurement": "matches",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "time_played",
+    "endpoint": "player",
+    "translation_key": "time_played",
+    "value_key": "time_played",
+    "native_unit_of_measurement": "s",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "rank",
+    "endpoint": "player",
+    "translation_key": "rank",
+    "value_key": "rank",
+    "icon": "mdi:medal"
+  },
+  {
+    "key": "prestige",
+    "endpoint": "player",
+    "translation_key": "prestige",
+    "value_key": "prestige",
+    "icon": "mdi:star-circle",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "assists",
+    "endpoint": "player",
+    "translation_key": "assists",
+    "value_key": "assists",
+    "icon": "mdi:handshake",
+    "native_unit_of_measurement": "assists",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "back_stabs",
+    "endpoint": "player",
+    "translation_key": "back_stabs",
+    "value_key": "back_stabs",
+    "icon": "mdi:knife",
+    "native_unit_of_measurement": "kills",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "bot_kills",
+    "endpoint": "player",
+    "translation_key": "bot_kills",
+    "value_key": "bot_kills",
+    "icon": "mdi:robot",
+    "native_unit_of_measurement": "kills",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "captures",
+    "endpoint": "player",
+    "translation_key": "captures",
+    "value_key": "captures",
+    "icon": "mdi:flag-checkered",
+    "native_unit_of_measurement": "captures",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "exp",
+    "endpoint": "player",
+    "translation_key": "exp",
+    "value_key": "exp",
+    "icon": "mdi:star-four-points",
+    "native_unit_of_measurement": "XP",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "class_exp",
+    "endpoint": "player",
+    "translation_key": "class_exp",
+    "value_key": "class_exp",
+    "icon": "mdi:account-star",
+    "native_unit_of_measurement": "XP",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "fire_kills",
+    "endpoint": "player",
+    "translation_key": "fire_kills",
+    "value_key": "fire_kills",
+    "icon": "mdi:fire",
+    "native_unit_of_measurement": "kills",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "heal_assists",
+    "endpoint": "player",
+    "translation_key": "heal_assists",
+    "value_key": "heal_assists",
+    "icon": "mdi:medical-bag",
+    "native_unit_of_measurement": "assists",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "highest_death_streak",
+    "endpoint": "player",
+    "translation_key": "highest_death_streak",
+    "value_key": "highest_death_streak",
+    "icon": "mdi:skull-crossbones",
+    "native_unit_of_measurement": "deaths",
+    "state_class": "measurement"
+  },
+  {
+    "key": "highest_kill_streak",
+    "endpoint": "player",
+    "translation_key": "highest_kill_streak",
+    "value_key": "highest_kill_streak",
+    "icon": "mdi:fire-circle",
+    "native_unit_of_measurement": "kills",
+    "state_class": "measurement"
+  },
+  {
+    "key": "hs_kr",
+    "endpoint": "player",
+    "translation_key": "hs_kr",
+    "value_key": "hs_kr",
+    "icon": "mdi:crosshairs-gps"
+  },
+  {
+    "key": "infected_kills",
+    "endpoint": "player",
+    "translation_key": "infected_kills",
+    "value_key": "infected_kills",
+    "icon": "mdi:zombie",
+    "native_unit_of_measurement": "kills",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "infected_matches_won",
+    "endpoint": "player",
+    "translation_key": "infected_matches_won",
+    "value_key": "infected_matches_won",
+    "icon": "mdi:trophy",
+    "native_unit_of_measurement": "matches",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "infected_rounds_won",
+    "endpoint": "player",
+    "translation_key": "infected_rounds_won",
+    "value_key": "infected_rounds_won",
+    "icon": "mdi:check-decagram",
+    "native_unit_of_measurement": "rounds",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "match_karma",
+    "endpoint": "player",
+    "translation_key": "match_karma",
+    "value_key": "match_karma",
+    "icon": "mdi:heart",
+    "native_unit_of_measurement": "karma",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "objective_score",
+    "endpoint": "player",
+    "translation_key": "objective_score",
+    "value_key": "objective_score",
+    "icon": "mdi:flag",
+    "native_unit_of_measurement": "points",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "trophies",
+    "endpoint": "player",
+    "translation_key": "trophies",
+    "value_key": "trophies",
+    "icon": "mdi:trophy-variant",
+    "native_unit_of_measurement": "trophies",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "vehicle_kills",
+    "endpoint": "player",
+    "translation_key": "vehicle_kills",
+    "value_key": "vehicle_kills",
+    "icon": "mdi:car",
+    "native_unit_of_measurement": "kills",
+    "state_class": "total_increasing"
+  },
+  {
+    "key": "skill_rank",
+    "endpoint": "player",
+    "translation_key": "skill_rank",
+    "value_key": "skill_rank",
+    "icon": "mdi:medal-outline"
+  },
+  {
+    "key": "clan",
+    "endpoint": "player",
+    "translation_key": "clan",
+    "value_key": "clan",
+    "icon": "mdi:account-group"
+  },
+  {
+    "key": "latest_match",
+    "endpoint": "player_matches",
+    "translation_key": "latest_match",
+    "icon": "mdi:clipboard-text-clock"
+  },
+  {
+    "key": "latest_match_score",
+    "endpoint": "player_matches",
+    "translation_key": "latest_match_score",
+    "value_key": "score",
+    "icon": "mdi:counter",
+    "native_unit_of_measurement": "points",
+    "state_class": "measurement"
+  },
+  {
+    "key": "online_players",
+    "endpoint": "player_count",
+    "translation_key": "online_players",
+    "value_key": "online_count",
+    "icon": "mdi:account-group",
+    "native_unit_of_measurement": "players",
+    "state_class": "measurement"
+  },
+  {
+    "key": "latest_match_duration",
+    "endpoint": "player_matches",
+    "translation_key": "latest_match_duration",
+    "value_key": "duration_seconds",
+    "native_unit_of_measurement": "s",
+    "state_class": "measurement"
+  },
+  {
+    "key": "latest_match_end",
+    "endpoint": "player_matches",
+    "translation_key": "latest_match_end",
+    "value_key": "ended_at",
+    "device_class": "timestamp"
+  }
+]

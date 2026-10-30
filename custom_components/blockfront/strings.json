@@ -2,12 +2,13 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect a BlockFront player",
-        "description": "Enter the BlockFront username and the statistics API base URL. Enter an API key only if its use has been authorized.",
+        "title": "BlockFront Official API",
+        "description": "Public data works without a key. Enter your UUID to preserve a stable player identity. Only official keys are accepted.",
         "data": {
-          "username": "BlockFront username",
-          "api_base_url": "Statistics API base URL",
-          "api_key": "API key (if authorized)"
+          "username": "Player name",
+          "player_uuid": "Player UUID",
+          "api_base_url": "Official API base URL",
+          "api_key": "Official API key (optional)"
         }
       }
     },
@@ -24,54 +25,28 @@
   "options": {
     "step": {
       "init": {
-        "title": "Statistics, activity, and refresh intervals",
-        "description": "Choose how BlockFront data is refreshed. The activity sensor is optional; changing it takes effect when you save.",
+        "title": "Official API: access and data",
+        "description": "An empty key field keeps the saved key. Use Remove saved API key to return to public-only mode. Private entity identities and recorded history are preserved. Data selection also controls endpoint polling. Map and brigade/match detail metrics are optional.",
         "data": {
-          "api_base_url": "Statistics API base URL",
-          "api_key": "API key (if authorized)",
-          "profile_interval": "Player profile refresh (seconds)",
-          "matches_interval": "Recent matches refresh (seconds)",
-          "online_interval": "Online player count refresh (seconds)",
-          "status_interval": "Service status refresh (seconds)",
-          "activity_entity": "Sensor that detects BlockFront activity (optional)",
-          "activity_match": "Window title text to match",
-          "activity_cooldown_minutes": "Keep personal data refreshing quickly after activity (minutes)",
-          "idle_heartbeat_minutes": "Check personal data while idle or activity is unknown (minutes)",
-          "adaptive_polling": "Adapt personal refresh timing",
-          "adaptive_margin_percent": "Wait this extra margin after observed data changes (percent)",
-          "presence_mode": "Activity detection mode",
-          "analytics_interval": "Match analytics refresh (seconds)",
-          "history_interval": "Personal history and ranks refresh (seconds)",
-          "archive_interval": "Class XP and inventory refresh (seconds)",
-          "global_interval": "Maps, trends, player counts and leaderboards refresh (seconds)",
-          "profile_source": "Player statistics source",
-          "matches_source": "Match history source"
-        },
-        "data_description": {
-          "api_base_url": "Base address of your statistics API. The integration uses this address for private player data.",
-          "api_key": "Leave blank to keep the key already saved. Only enter a key if you are authorized to use it.",
-          "profile_interval": "How often to check your BlockFront profile while personal polling is active.",
-          "matches_interval": "How often to check for newly recorded matches while personal polling is active.",
-          "online_interval": "How often to refresh the game-wide online player count.",
-          "status_interval": "How often to check whether the statistics service is available.",
-          "activity_entity": "Select a HASS.Agent Active Window text sensor or a binary sensor that specifically means you are playing BlockFront. This entity is not hard-coded; you can change or clear it later. Saving reloads the integration and switches to the selected entity.",
-          "activity_match": "For a text sensor, activity is detected when its state contains this text, ignoring letter case. For HASS.Agent Active Window, use BlockFront. A matching window means it is in the foreground; it does not prove you are connected to a match. This setting is ignored for binary sensors.",
-          "activity_cooldown_minutes": "After the selected sensor stops matching, keep checking personal data at the active rate for this long so delayed profile and match updates can arrive.",
-          "idle_heartbeat_minutes": "When activity is off or unknown, check personal data this often. Online counts, global statistics and service status keep their own schedules.",
-          "adaptive_polling": "Learn refresh timing from changes in source data and activity. Minimum and maximum intervals and API rate limits still apply.",
-          "adaptive_margin_percent": "Wait this percentage beyond the observed source update cadence before checking again, to avoid polling before new data is published.",
-          "presence_mode": "Auto follows the selected sensor. Force active keeps personal polling enabled. Force idle pauses personal polling. Game-wide data continues in every mode.",
-          "analytics_interval": "How often to check recorded-match summaries and breakdowns while personal polling is active.",
-          "history_interval": "How often to check personal history and rank snapshots while personal polling is active.",
-          "archive_interval": "How often to check optional class XP and inventory snapshots while personal polling is active.",
-          "global_interval": "How often to refresh shared game data. This continues even when personal polling is idle.",
-          "profile_source": "Choose the primary source for profile statistics. Vuis player pages are the default.",
-          "matches_source": "Choose the source for recent match history. Vuis player pages are the default."
+          "username": "Player name",
+          "player_uuid": "Player UUID",
+          "api_base_url": "Official API base URL",
+          "api_key": "Official API key (optional)",
+          "remove_api_key": "Remove saved API key",
+          "enabled_metrics": "Enabled data and entities",
+          "selected_map": "Selected map (exact name)",
+          "selected_mode": "Selected game mode",
+          "selected_team": "Selected team",
+          "player_count_interval": "player_count: refresh interval (seconds)",
+          "scoreboard_interval": "scoreboard: refresh interval (seconds)",
+          "map_stats_interval": "map_stats: refresh interval (seconds)",
+          "map_ratings_interval": "map_ratings: refresh interval (seconds)",
+          "player_interval": "player: refresh interval (seconds)",
+          "player_matches_interval": "player_matches: refresh interval (seconds)",
+          "clan_interval": "clan: refresh interval (seconds)",
+          "match_interval": "match: refresh interval (seconds)"
         }
       }
-    },
-    "error": {
-      "invalid_api_url": "Enter a valid HTTP or HTTPS API base URL without credentials, query, or fragment."
     }
   },
   "entity": {

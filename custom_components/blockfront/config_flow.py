@@ -1,232 +1,148 @@
-"""Config and options flows for BlockFront."""
+"""Public official API with optional authorized access."""
 
-from __future__ import annotations
-
-import re
-from typing import Any
+from uuid import UUID
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.config_entries import ConfigFlow, OptionsFlow
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import ApiError, BlockFrontApi, PlayerNotFound, normalize_api_base_url
-from .const import (
-    CONF_API_BASE_URL,
-    CONF_API_KEY,
-    CONF_PLAYER_UUID,
-    CONF_USERNAME,
-    DEFAULT_OPTIONS,
-    DOMAIN,
-    MAX_INTERVAL_SECONDS,
-    MIN_INTERVALS,
-    OPTION_ACTIVITY_COOLDOWN,
-    OPTION_ACTIVITY_ENTITY,
-    OPTION_ACTIVITY_MATCH,
-    OPTION_ADAPTIVE_MARGIN,
-    OPTION_ADAPTIVE_POLLING,
-    OPTION_IDLE_HEARTBEAT,
-    OPTION_MATCHES_SOURCE,
-    OPTION_PRESENCE_MODE,
-    OPTION_PROFILE_SOURCE,
-    SOURCE_COMMUNITY,
-    SOURCE_STATISTICS_API,
-    SOURCE_VUIS,
-)
-
-_USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_]{3,16}$")
+from .official import DEFAULT_URL, PRIVATE, PUBLIC, OfficialApi, OfficialError, normalize_url
+from .official_runtime import catalog, selected
 
 
-class BlockFrontConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Set up one public BlockFront player by username."""
+class BlockFrontConfigFlow(ConfigFlow, domain="blockfront"):
+    VERSION = 4
 
-    VERSION = 3
-
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Ask for a player name, then resolve it to a stable UUID."""
-        errors: dict[str, str] = {}
+    async def async_step_user(self, user_input=None):
+        errors = {}
         if user_input is not None:
-            username = user_input[CONF_USERNAME].strip()
-            if not _USERNAME_PATTERN.fullmatch(username):
-                errors[CONF_USERNAME] = "invalid_username"
-            else:
+            try:
+                identity = str(UUID(user_input["player_uuid"]))
+            except (ValueError, TypeError):
+                errors["player_uuid"] = "invalid_player"
+            try:
+                url = normalize_url(user_input["api_base_url"])
+            except ValueError:
+                errors["api_base_url"] = "invalid_api_url"
+            if not errors:
+                api = OfficialApi(
+                    async_get_clientsession(self.hass), url, user_input.get("api_key", "").strip()
+                )
                 try:
-                    api_base_url = normalize_api_base_url(user_input[CONF_API_BASE_URL])
-                except (KeyError, ValueError):
-                    errors[CONF_API_BASE_URL] = "invalid_api_url"
+                    await api.get("player_count")
+                    if api.api_key:
+                        await api.get("player", uuid=identity)
+                except OfficialError:
+                    errors["base"] = "cannot_connect"
                 else:
-                    api_key = user_input.get(CONF_API_KEY, "").strip()
-                    api = BlockFrontApi(
-                        async_get_clientsession(self.hass),
-                        api_key=api_key or None,
-                        api_base_url=api_base_url,
+                    await self.async_set_unique_id(identity)
+                    self._abort_if_unique_id_configured()
+                    return self.async_create_entry(
+                        title=user_input["username"],
+                        data={
+                            **user_input,
+                            "player_uuid": identity,
+                            "api_base_url": url,
+                            "api_key": api.api_key,
+                        },
                     )
-                    try:
-                        player_uuid = await api.async_resolve_player(username)
-                    except PlayerNotFound:
-                        errors["base"] = "invalid_player"
-                    except ApiError:
-                        errors["base"] = "cannot_connect"
-                    else:
-                        await self.async_set_unique_id(player_uuid)
-                        self._abort_if_unique_id_configured()
-                        entry_data = {
-                            CONF_USERNAME: username,
-                            CONF_PLAYER_UUID: player_uuid,
-                            CONF_API_BASE_URL: api_base_url,
-                        }
-                        if api_key:
-                            entry_data[CONF_API_KEY] = api_key
-                        return self.async_create_entry(title=username, data=entry_data)
-
         return self.async_show_form(
             step_id="user",
+            errors=errors,
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_USERNAME): str,
-                    vol.Required(CONF_API_BASE_URL): str,
-                    vol.Optional(CONF_API_KEY, default=""): selector.TextSelector(
+                    vol.Required("username"): str,
+                    vol.Required("player_uuid"): str,
+                    vol.Required("api_base_url", default=DEFAULT_URL): str,
+                    vol.Optional("api_key", default=""): selector.TextSelector(
                         selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
                     ),
                 }
             ),
-            errors=errors,
         )
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> BlockFrontOptionsFlow:
-        """Create the options flow for a config entry."""
+    def async_get_options_flow(config_entry):
         return BlockFrontOptionsFlow()
 
 
 class BlockFrontOptionsFlow(OptionsFlow):
-    """Configure each polling group independently."""
-
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Show the private API URL, key, and validated polling intervals."""
+    async def async_step_init(self, user_input=None):
+        entry = self.config_entry
+        rows = await self.hass.async_add_executor_job(catalog)
+        errors = {}
         if user_input is not None:
             try:
-                user_input[CONF_API_BASE_URL] = normalize_api_base_url(
-                    user_input[CONF_API_BASE_URL]
-                )
-            except (KeyError, ValueError):
-                return self.async_show_form(
-                    step_id="init",
-                    data_schema=self._schema(),
-                    errors={CONF_API_BASE_URL: "invalid_api_url"},
-                )
-            saved_key = self.config_entry.options.get(CONF_API_KEY) or self.config_entry.data.get(
-                CONF_API_KEY, ""
-            )
-            user_input[CONF_API_KEY] = user_input.get(CONF_API_KEY, "").strip() or saved_key
-            for source_key in (OPTION_PROFILE_SOURCE, OPTION_MATCHES_SOURCE):
-                if user_input.get(source_key) == SOURCE_COMMUNITY:
-                    user_input[source_key] = SOURCE_VUIS
-            return self.async_create_entry(title="", data=user_input)
-
-        return self.async_show_form(step_id="init", data_schema=self._schema())
-
-    def _schema(self) -> vol.Schema:
-        """Build settings schema while retaining existing values as defaults."""
-        saved_url = self.config_entry.options.get(
-            CONF_API_BASE_URL,
-            self.config_entry.data.get(CONF_API_BASE_URL, ""),
+                user_input["api_base_url"] = normalize_url(user_input["api_base_url"])
+            except ValueError:
+                errors["api_base_url"] = "invalid_api_url"
+            saved_key = entry.options.get("api_key", entry.data.get("api_key", ""))
+            new_key = user_input.pop("api_key", "").strip()
+            remove_key = user_input.pop("remove_api_key", False)
+            user_input["api_key"] = "" if remove_key else new_key or saved_key
+            if not errors and new_key and not remove_key:
+                try:
+                    await OfficialApi(
+                        async_get_clientsession(self.hass), user_input["api_base_url"], new_key
+                    ).get("player", uuid=entry.data["player_uuid"])
+                except OfficialError:
+                    errors["base"] = "cannot_connect"
+            if not errors:
+                if "api_key" in entry.data:
+                    self.hass.config_entries.async_update_entry(
+                        entry, data={k: v for k, v in entry.data.items() if k != "api_key"}
+                    )
+                if new_key and not saved_key and not remove_key:
+                    user_input["enabled_metrics"] = list(
+                        dict.fromkeys(
+                            [
+                                *user_input.get("enabled_metrics", []),
+                                *(
+                                    r["key"]
+                                    for r in rows
+                                    if r["endpoint"] in {"player", "player_matches"}
+                                ),
+                            ]
+                        )
+                    )
+                return self.async_create_entry(title="", data=user_input)
+        enabled = entry.options.get(
+            "enabled_metrics", [r["key"] for r in rows if selected(entry, r)]
         )
-        schema: dict[vol.Marker, Any] = {
-            vol.Required(CONF_API_BASE_URL, default=saved_url): str,
-            vol.Optional(CONF_API_KEY, default=""): selector.TextSelector(
+        schema = {
+            vol.Required(
+                "api_base_url",
+                default=entry.options.get(
+                    "api_base_url", entry.data.get("api_base_url", DEFAULT_URL)
+                ),
+            ): str,
+            vol.Optional("api_key", default=""): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
             ),
+            vol.Optional("remove_api_key", default=False): bool,
+            vol.Required("enabled_metrics", default=enabled): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    multiple=True,
+                    options=[
+                        {"value": r["key"], "label": f"{r.get('name', r['key'])} ({r['endpoint']})"}
+                        for r in rows
+                    ],
+                )
+            ),
+            vol.Optional("selected_map", default=entry.options.get("selected_map", "")): str,
+            vol.Required("selected_mode", default=entry.options.get("selected_mode", "dom")): str,
+            vol.Required(
+                "selected_team", default=entry.options.get("selected_team", "Allies")
+            ): str,
         }
-        for key, default in DEFAULT_OPTIONS.items():
-            if key in {
-                OPTION_ACTIVITY_ENTITY,
-                OPTION_ACTIVITY_MATCH,
-                OPTION_ACTIVITY_COOLDOWN,
-                OPTION_IDLE_HEARTBEAT,
-                OPTION_ADAPTIVE_POLLING,
-                OPTION_ADAPTIVE_MARGIN,
-                OPTION_PRESENCE_MODE,
-                OPTION_PROFILE_SOURCE,
-                OPTION_MATCHES_SOURCE,
-            }:
-                continue
-            saved_value = self.config_entry.options.get(key, default)
-            schema[vol.Required(key, default=saved_value)] = vol.All(
-                vol.Coerce(int),
-                vol.Range(min=MIN_INTERVALS[key], max=MAX_INTERVAL_SECONDS),
-            )
-        for source_key in (OPTION_PROFILE_SOURCE, OPTION_MATCHES_SOURCE):
-            saved_source = self.config_entry.options.get(source_key, SOURCE_VUIS)
-            default_source = (
-                SOURCE_VUIS
-                if saved_source in (SOURCE_VUIS, SOURCE_COMMUNITY)
-                else SOURCE_STATISTICS_API
-            )
+        for endpoint, default in {**PUBLIC, **PRIVATE}.items():
             schema[
                 vol.Required(
-                    source_key,
-                    default=default_source,
+                    f"{endpoint}_interval",
+                    default=entry.options.get(f"{endpoint}_interval", default),
                 )
-            ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        {"value": SOURCE_STATISTICS_API, "label": "Statistics API"},
-                        {"value": SOURCE_VUIS, "label": "Vuis player pages (HTML)"},
-                    ],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            )
-        entity_default = self.config_entry.options.get(OPTION_ACTIVITY_ENTITY)
-        entity_marker = (
-            vol.Optional(OPTION_ACTIVITY_ENTITY, default=entity_default)
-            if entity_default
-            else vol.Optional(OPTION_ACTIVITY_ENTITY)
-        )
-        schema[entity_marker] = selector.EntitySelector(
-            selector.EntitySelectorConfig(domain=["sensor", "binary_sensor"])
-        )
-        schema[vol.Optional(OPTION_ACTIVITY_MATCH, default="BlockFront")] = str
-        schema[
-            vol.Required(
-                OPTION_ACTIVITY_COOLDOWN,
-                default=self.config_entry.options.get(OPTION_ACTIVITY_COOLDOWN, 30),
-            )
-        ] = vol.All(vol.Coerce(int), vol.Range(min=0, max=240))
-        schema[
-            vol.Required(
-                OPTION_IDLE_HEARTBEAT,
-                default=self.config_entry.options.get(OPTION_IDLE_HEARTBEAT, 60),
-            )
-        ] = vol.All(vol.Coerce(int), vol.Range(min=15, max=360))
-        schema[
-            vol.Required(
-                OPTION_ADAPTIVE_POLLING,
-                default=self.config_entry.options.get(OPTION_ADAPTIVE_POLLING, True),
-            )
-        ] = selector.BooleanSelector()
-        schema[
-            vol.Required(
-                OPTION_ADAPTIVE_MARGIN,
-                default=self.config_entry.options.get(OPTION_ADAPTIVE_MARGIN, 10),
-            )
-        ] = vol.All(vol.Coerce(int), vol.Range(min=0, max=50))
-        schema[
-            vol.Required(
-                OPTION_PRESENCE_MODE,
-                default=self.config_entry.options.get(OPTION_PRESENCE_MODE, "auto"),
-            )
-        ] = selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=["auto", "force_active", "force_idle"],
-                mode=selector.SelectSelectorMode.DROPDOWN,
-            )
-        )
-        return vol.Schema(schema)
-
-
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload the entry after options change."""
-    await hass.config_entries.async_reload(entry.entry_id)
+            ] = vol.All(vol.Coerce(int), vol.Range(min=60, max=86400))
+        return self.async_show_form(step_id="init", errors=errors, data_schema=vol.Schema(schema))

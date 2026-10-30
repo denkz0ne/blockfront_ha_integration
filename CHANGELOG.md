@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0 — 2026-10-30
+
+- Reconstruct data access around official API v2 only; remove previous provider clients and credentials during migration.
+- Add public-only and optional authorized modes with per-metric entity and endpoint control.
+- Preserve equivalent UUID-based entity identities, units and recorder history; disable unsupported legacy metrics without deleting them.
+- Add monthly standing/reset and selected map/team statistics and ratings, with optional authorized brigade/latest-match details.
+- Validate documented payloads, isolate key headers, handle ETag/304, shared throttling and 429/503 backoff.
+- Private profile fields not enumerated in official docs still require verification with an authorized key.
+
+
 ## 0.8.2 — 2026-10-23
 
 - Restore the approved compact, light three-column dashboard design.
