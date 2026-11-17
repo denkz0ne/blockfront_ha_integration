@@ -328,7 +328,18 @@ def parse_matches(source, expected_username):
             rows
             for rows in page.tables
             if rows and [cell.casefold() for cell in rows[0]][1:]
-            == ["game", "map", "result", "team", "ended", "place", "kills", "deaths", "assists", "score"]
+            == [
+                "game",
+                "map",
+                "result",
+                "team",
+                "ended",
+                "place",
+                "kills",
+                "deaths",
+                "assists",
+                "score",
+            ]
         ),
         None,
     )
@@ -381,7 +392,11 @@ def parse_match_detail(source):
     page = _parse_page(source)
     text = "\n".join(page.lines)
     score_match = re.search(r"\bScore:\s*(\d+)\s*[-–]\s*(\d+)\b", text)
-    date_match = re.search(r"\bDate:\s*(\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+UTC)", text)
+    date_match = re.search(
+        r"\bDate:\s*(\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+"
+        r"\d{2}:\d{2}:\d{2}\s+UTC)",
+        text,
+    )
     team_order = []
     for line in page.lines:
         team = re.match(r"(Allies|Axis)\s+\(\d+\)(?:\s+\d+)?$", line)
