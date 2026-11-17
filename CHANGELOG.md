@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0 — 2026-11-17
+
+- Restore Vuis public player, match, brigade, and brigade-scoreboard pages as the primary data source.
+- Make UUID optional at setup; resolve it from the configured public player profile and keep UUID-based entity identities.
+- Retain the official API as an optional exact-field fallback; never send its key to Vuis.
+- Add selected career, rank-progress, class XP, latest-match, and brigade entities; remove excluded captures, K/HS, map, roster, duration, casualty, and global datasets.
+- Convert Vuis play time from rounded hours to seconds, expose rank progress and calculated career win rate, and parse the latest match's UTC time and team scores.
+- Migrate v0.9.0 keys safely and retain recorder data while integration-disabling unsupported entities.
+
 ## 0.9.0 — 2026-10-30
 
 - Reconstruct data access around official API v2 only; remove previous provider clients and credentials during migration.

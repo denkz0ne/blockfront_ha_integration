@@ -1,11 +1,39 @@
-# Official API reconstruction
+# Vuis and official API data flow
 
-Only the official configurable API v2 URL is used. Public groups: player_count, scoreboard, map_stats, map_ratings. Optional key groups: player, player_matches, clan and latest match. X-API-Key is never sent on public requests, logged, or included in diagnostics. Redirects are disabled.
+Vuis BFStats pages are the primary public source. The official BlockFront API is an optional authenticated supplement and fallback.
 
-Preserve UUID-based unique IDs, original units and state classes only for equivalent profile/match/online values. Unsupported legacy entities remain in the registry and recorder without being provided. No recorder edits or entity deletions. Key-dependent registry entries are integration-disabled without a key and re-enabled only if disabled by this integration. User-disabled entities remain disabled.
+## Public Vuis routes
 
-One coordinator per endpoint; individual data selection controls entity registration and endpoint polling. Private requests require a configured key. Public failures remain independent. Cache by request parameters and authorization context; 304 needs a valid cache. Shared throttling and Retry-After apply across groups. Empty arrays are valid, missing numbers never become zero. A failed update makes its sensors unavailable.
+| Vuis page | Data | Integration entities |
+|---|---|---|
+| `/bfstats/players/{username}/stats` | UUID, rank and XP progression, career statistics, class XP, brigade tag | `vuis_profile` sensors and bootcamp binary sensor |
+| `/bfstats/players/{username}/matches` | Newest match, result, personal score line, placement, map, mode, team, relative end time, match detail link | `vuis_matches` summary sensors |
+| `/bfstats/match/{match_id}` | Exact UTC end time and Allies/Axis scores, when the page identifies team order | `latest_match_end`, `latest_match_allies_score`, `latest_match_axis_score`; player rows are discarded |
+| `/bfstats/brigades/{tag}` | Brigade name/tag, member count/capacity, configured player's role | `vuis_brigade` sensors |
+| `/bfstats/scoreboards/brigades` | Configured brigade's current rank and score only | `brigade_rank`, `brigade_score` |
 
-Monthly score/rank are new metrics, never career/skill replacements. Millisecond timestamps become UTC timestamps. Map winRate is converted from ratio to percent; map/team data is never assigned to personal entities. No mass creation per map: selected map/mode/team, raw map counts, optional aggregate attributes. Profile stats keys are undocumented (the official example contains stats: {}); support exact known keys and offer observed unknown scalar fields for explicit selection separately, without guessing equivalence or units. Private behavior must be verified with an authorized key later.
+The parser does not create entities for UUID, K/HS, captures, Commander XP, map pages, the full match roster, match duration, team casualties, global player count, monthly standings, or map ratings. UUID remains the config-entry unique ID and is not exposed as a sensor.
 
-Implementation: official transport and tests; endpoint normalization; runtime and entity lifecycle; version-4 configuration migration and per-data options; docs, CI, main and release. No HA restart/deployment.
+Vuis returns HTML. Each page family has its own coordinator and refresh interval. Requests share a serialized Vuis client. A latest-match detail failure leaves the match's other fields usable; brigade summary and scoreboard can also refresh independently when only one page fails.
+
+## Optional official API fallback
+
+An API key is stored in the config entry and sent only in `X-API-Key` headers to the configured official API base URL. The key is never added to Vuis requests, URLs, logs, or diagnostic attributes. Official `player`, `player_matches`, `clan`, and `match` responses fill only null or unavailable fields. Existing Vuis values take precedence. If Vuis profile or match parsing fails, the corresponding authorized official endpoint can provide a fallback dataset. Public official endpoints for online count, monthly scoreboard, maps, and ratings are not polled.
+
+The profile and matches coordinators keep failures independent. A failed official fallback does not make usable Vuis data unavailable. Empty/missing fields remain unknown rather than becoming zero. No assumptions are made about undocumented stat names or units.
+
+## Identity and migration
+
+Setup validates the Minecraft username and reads the public Vuis profile. UUID input is optional; when omitted, the profile avatar URL supplies the UUID before the config entry is created. A supplied UUID must match the public profile. The UUID is persisted as the config entry's unique ID, preserving existing UUID-based entity identities.
+
+Version 5 retains the valid official API key from v0.9.0, resets old endpoint/entity selections to the newly selected Vuis datasets, and leaves historical recorder data untouched. Earlier-provider credentials are discarded. Entities outside the new catalog, including excluded map/global/match-detail entities, are integration-disabled rather than removed. User-disabled entities remain disabled.
+
+## Values and semantics
+
+- Vuis play time is shown in rounded tenths of an hour. The existing `time_played` sensor remains seconds (`hours × 3600`) for Home Assistant compatibility; attributes state that it is rounded.
+- K/D is numeric and rounded to two decimal places. Rank progress is available as XP progress, XP required, XP remaining, and percent.
+- Match team scores are assigned to Allies/Axis from the page's team order; the official match endpoint supplies named values if the Vuis order is unavailable.
+- Match date is parsed from the detail page's explicit UTC timestamp. The relative time remains a diagnostic attribute.
+- No profile history is fabricated. Home Assistant recorder history can chart the new sensor values going forward.
+
+The official API v2 profile example documents `stats: {}` without a full field schema. Only exact known fields are mapped as fallbacks. Official routes that require a key are not requested unless one is configured.

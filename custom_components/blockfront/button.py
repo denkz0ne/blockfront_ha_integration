@@ -1,4 +1,4 @@
-"""Refresh the enabled official datasets."""
+"""Refresh every enabled BlockFront data source."""
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.device_registry import DeviceInfo

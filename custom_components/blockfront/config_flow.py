@@ -1,4 +1,4 @@
-"""Public official API with optional authorized access."""
+"""Config flow: resolve the configured username publicly and keep UUID optional."""
 
 from uuid import UUID
 
@@ -8,53 +8,79 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .official import DEFAULT_URL, PRIVATE, PUBLIC, OfficialApi, OfficialError, normalize_url
-from .official_runtime import catalog, selected
+from .official import DEFAULT_URL, OfficialApi, OfficialError, normalize_url
+from .official_runtime import DEFAULT_INTERVALS, catalog, selected
+from .vuis import VuisError, resolve_player, validate_username
 
 
 class BlockFrontConfigFlow(ConfigFlow, domain="blockfront"):
-    VERSION = 4
+    VERSION = 5
 
     async def async_step_user(self, user_input=None):
         errors = {}
         if user_input is not None:
             try:
-                identity = str(UUID(user_input["player_uuid"]))
-            except (ValueError, TypeError):
-                errors["player_uuid"] = "invalid_player"
+                username = validate_username(user_input.get("username", ""))
+            except ValueError:
+                errors["username"] = "invalid_username"
+                username = ""
+            identity = None
+            supplied_uuid = str(user_input.get("player_uuid") or "").strip()
+            if supplied_uuid:
+                try:
+                    identity = str(UUID(supplied_uuid))
+                except (ValueError, TypeError):
+                    errors["player_uuid"] = "invalid_player"
             try:
-                url = normalize_url(user_input["api_base_url"])
+                url = normalize_url(user_input.get("api_base_url") or DEFAULT_URL)
             except ValueError:
                 errors["api_base_url"] = "invalid_api_url"
+                url = DEFAULT_URL
+
             if not errors:
-                api = OfficialApi(
-                    async_get_clientsession(self.hass), url, user_input.get("api_key", "").strip()
-                )
+                session = async_get_clientsession(self.hass)
                 try:
-                    await api.get("player_count")
-                    if api.api_key:
-                        await api.get("player", uuid=identity)
-                except OfficialError:
-                    errors["base"] = "cannot_connect"
-                else:
-                    await self.async_set_unique_id(identity)
-                    self._abort_if_unique_id_configured()
-                    return self.async_create_entry(
-                        title=user_input["username"],
-                        data={
-                            **user_input,
-                            "player_uuid": identity,
-                            "api_base_url": url,
-                            "api_key": api.api_key,
-                        },
+                    resolved_name, resolved_uuid = await resolve_player(session, username)
+                except VuisError as err:
+                    errors["base"] = (
+                        "invalid_player"
+                        if "not found" in str(err).casefold()
+                        or "did not return a player profile" in str(err).casefold()
+                        else "cannot_connect"
                     )
+                else:
+                    if identity and identity != resolved_uuid:
+                        errors["player_uuid"] = "invalid_player"
+                    else:
+                        identity = resolved_uuid
+                        api_key = str(user_input.get("api_key") or "").strip()
+                        if api_key:
+                            try:
+                                await OfficialApi(session, url, api_key).get(
+                                    "player", uuid=identity
+                                )
+                            except OfficialError:
+                                errors["base"] = "invalid_api_key"
+                        if not errors:
+                            await self.async_set_unique_id(identity)
+                            self._abort_if_unique_id_configured()
+                            return self.async_create_entry(
+                                title=resolved_name,
+                                data={
+                                    "username": resolved_name,
+                                    "player_uuid": identity,
+                                    "api_base_url": url,
+                                    "api_key": api_key,
+                                },
+                            )
+
         return self.async_show_form(
             step_id="user",
             errors=errors,
             data_schema=vol.Schema(
                 {
                     vol.Required("username"): str,
-                    vol.Required("player_uuid"): str,
+                    vol.Optional("player_uuid", default=""): str,
                     vol.Required("api_base_url", default=DEFAULT_URL): str,
                     vol.Optional("api_key", default=""): selector.TextSelector(
                         selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
@@ -73,47 +99,32 @@ class BlockFrontOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input=None):
         entry = self.config_entry
         rows = await self.hass.async_add_executor_job(catalog)
-        runtime = getattr(entry, "runtime_data", None)
-        if isinstance(runtime, dict):
-            rows += [r for r in runtime.get("catalog", []) if r["key"].startswith("official_stat_")]
         errors = {}
         if user_input is not None:
             try:
-                user_input["api_base_url"] = normalize_url(user_input["api_base_url"])
+                user_input["api_base_url"] = normalize_url(
+                    user_input.get("api_base_url") or DEFAULT_URL
+                )
             except ValueError:
                 errors["api_base_url"] = "invalid_api_url"
-            saved_key = entry.options.get("api_key", entry.data.get("api_key", ""))
-            new_key = user_input.pop("api_key", "").strip()
+            saved_key = entry.options.get("api_key") or entry.data.get("api_key", "")
+            new_key = str(user_input.pop("api_key", "") or "").strip()
             remove_key = user_input.pop("remove_api_key", False)
             user_input["api_key"] = "" if remove_key else new_key or saved_key
             if not errors and new_key and not remove_key:
                 try:
                     await OfficialApi(
-                        async_get_clientsession(self.hass), user_input["api_base_url"], new_key
+                        async_get_clientsession(self.hass),
+                        user_input["api_base_url"],
+                        new_key,
                     ).get("player", uuid=entry.data["player_uuid"])
                 except OfficialError:
-                    errors["base"] = "cannot_connect"
+                    errors["base"] = "invalid_api_key"
             if not errors:
-                if "api_key" in entry.data:
-                    self.hass.config_entries.async_update_entry(
-                        entry, data={k: v for k, v in entry.data.items() if k != "api_key"}
-                    )
-                if new_key and not saved_key and not remove_key:
-                    user_input["enabled_metrics"] = list(
-                        dict.fromkeys(
-                            [
-                                *user_input.get("enabled_metrics", []),
-                                *(
-                                    r["key"]
-                                    for r in rows
-                                    if r["endpoint"] in {"player", "player_matches"}
-                                ),
-                            ]
-                        )
-                    )
                 return self.async_create_entry(title="", data=user_input)
+
         enabled = entry.options.get(
-            "enabled_metrics", [r["key"] for r in rows if selected(entry, r)]
+            "enabled_metrics", [row["key"] for row in rows if selected(entry, row)]
         )
         schema = {
             vol.Required(
@@ -130,18 +141,13 @@ class BlockFrontOptionsFlow(OptionsFlow):
                 selector.SelectSelectorConfig(
                     multiple=True,
                     options=[
-                        {"value": r["key"], "label": f"{r.get('name', r['key'])} ({r['endpoint']})"}
-                        for r in rows
+                        {"value": row["key"], "label": f"{row['name']} ({row['endpoint']})"}
+                        for row in rows
                     ],
                 )
             ),
-            vol.Optional("selected_map", default=entry.options.get("selected_map", "")): str,
-            vol.Required("selected_mode", default=entry.options.get("selected_mode", "dom")): str,
-            vol.Required(
-                "selected_team", default=entry.options.get("selected_team", "Allies")
-            ): str,
         }
-        for endpoint, default in {**PUBLIC, **PRIVATE}.items():
+        for endpoint, default in DEFAULT_INTERVALS.items():
             schema[
                 vol.Required(
                     f"{endpoint}_interval",

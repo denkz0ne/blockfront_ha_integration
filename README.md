@@ -1,45 +1,40 @@
-# BlockFront Stats — Official API
+# BlockFront Stats for Home Assistant
 
-Home Assistant integration using only the [official BlockFront API](https://docs.blockfrontmc.com/api/).
+Home Assistant integration for a configured BlockFront player. It reads public player, match, and brigade pages from [Vuis BFStats](https://vuis.dev/bfstats/). An optional [official BlockFront API](https://docs.blockfrontmc.com/api/) key fills supported values when the public Vuis page does not provide them.
 
-## Installation and upgrade
+## Setup and upgrade
 
-Add `https://github.com/denkz0ne/blockfront_ha_integration` to HACS as an Integration. Install/update and restart Home Assistant manually. Existing entries migrate automatically to the official URL and retain their player UUID. Previous provider URLs, keys and polling settings are removed; a key from another provider is never sent to the official API. Recorder history is not modified.
+Install through HACS and restart Home Assistant manually. On setup, enter the player's Minecraft name. The UUID field is optional: the integration reads the public Vuis player profile and stores the UUID internally to keep entity identities stable. If an official API key is supplied, it is validated against that player and is sent only to the configured official API URL.
 
-New setup asks for a display name, Minecraft UUID, official API base URL and optional **official** API key. Public data works without a key. The UUID can be copied from your previous integration entry.
+Existing entries migrate to Vuis as the primary source. Valid official API keys from v0.9.0 are retained as optional fallbacks. Previous-provider credentials are not reused. Existing recorder history is not rewritten, and unsupported old entities are integration-disabled rather than deleted.
 
-## Public and authorized modes
+## Data and refresh
 
-Without a key: online player count, your monthly score/position/reset and optional selected-map statistics and ratings.
+The integration creates selected sensors for:
 
-With a valid official key: player profile, per-class XP and recent matches, plus optional brigade metadata and latest-match team scores/casualties. Keys are sent only in `X-API-Key` on authorized routes. Private requests are never attempted without a key. An entered key is checked against your player profile before saving. Blank key input keeps the saved key; **Remove saved API key** clears it.
+- Player profile, career statistics, rank progress, and the eight classes shown on Vuis.
+- The latest match result, personal score and combat line, placement, map, mode, team, exact end time, and the two team totals.
+- Brigade name, tag, your role, member count/capacity, rank, and score.
+- Bootcamp completion as a binary sensor.
 
-Under Configure, **Enabled data and entities** selects each individual metric. Unselected entities are integration-disabled, not deleted. Endpoints with no selected metrics stop polling (dependencies may still be required by another selected endpoint). On first adding a key, supported profile and recent-match metrics are enabled automatically. User-disabled registry entities stay disabled.
+Vuis map pages, map statistics, the full latest-match player table, match duration, team casualties, global online count, official monthly standings, map ratings, captures, K/HS, and Commander XP are not exposed as integration entities.
 
-Private metrics are not created without a key; existing private entries are integration-disabled. Returning to authorized mode reuses their original UUID-based unique IDs. Unsupported old analytics/history/inventory/progression entities are no longer provided and remain disabled in the registry; existing recorder history is retained. No migration changes entity IDs or rewrites historical values.
+In **Configure**, entity selection controls both created sensors and endpoint polling. Profile and latest-match pages default to 15 minutes; brigade pages default to 30 minutes. Vuis requests are serialized and separated. The refresh button requests an update for every enabled endpoint.
 
-## Semantics and limitations
+Time played is converted from Vuis hours to seconds for Home Assistant. Vuis rounds that source value to a tenth of an hour; the sensor attributes mark the converted value as rounded. Rank progress is also provided as current XP, required XP, remaining XP, and percentage. Career win rate is calculated from wins and games. Ratios are numeric and rounded to two decimals.
 
-Online count keeps its original identity and `players` unit. Equivalent personal metrics retain their previous identity, units and state classes. Monthly score is a new entity and never substitutes for XP, skill rank, career totals or season history. Global map/team metrics are never used as personal statistics. Time values documented in milliseconds are converted to UTC timestamps; map win rates are converted to percent. Empty or unavailable data does not become zero.
+An official API key is optional. When configured, exact matching fields fill null Vuis fields; it does not replace a value already returned by Vuis. If a Vuis profile or match page is temporarily unavailable, the official API may supply the corresponding private dataset. The key is never sent to Vuis. Official routes still require an authorized key.
 
-The official profile example documents `stats: {}` without listing field names or units. The adapter supports exact existing stat keys, rank title, documented `class_exp`, and documented match fields; undocumented keys are not guessed. After an authorized response, extra scalar profile fields appear in Configure for explicit selection under their API field names. They receive new identities with no assumed units; existing career IDs are never reused for unverified fields. Full personal coverage, including play-time units and skill-rank shape, requires live verification with an authorized key. No key is currently available for end-to-end testing.
+## Dashboard
 
-Map metrics use the selected map/mode/team, avoiding hundreds of automatically generated entities. Map ratings use the selected map/mode, with votes including zero-star votes when supplied. Brigade and match details default off. Privacy-hidden standings are not exposed.
+`examples/blockfront-dashboard.yaml` is the dashboard example for the selected Vuis and official API entities. It keeps a compact light design and the existing profile, match, combat, and class views while excluding the removed maps and global data. The live dashboard is not changed automatically by installing the integration.
 
-| Dataset | Default interval |
-|---|---:|
-| Online count | 60 seconds |
-| Monthly standing | 300 seconds |
-| Map statistics | 900 seconds |
-| Map ratings | 3600 seconds |
-| Profile / recent matches | 900 seconds |
-| Brigade metadata | 1800 seconds |
-| Latest match details | 900 seconds |
+## Source limitations
 
-The shared client spaces requests, honors Retry-After on 429/503 and reuses ETag responses after 304. Official limits are 4 requests/second/IP without a key; authorized limits are 20/second/IP and 10/second/key. A shared-IP client can consume allowance independently. The integration does not fabricate a remaining-request counter. Dataset failures do not take down unrelated endpoints.
+Vuis currently exposes these values as rendered HTML rather than a documented JSON API. The integration reads the public profile, matches, brigade, brigade scoreboard, and latest-match pages. If Vuis changes its page structure, affected entities may become unavailable until the parser is updated. No credentials are used for Vuis.
 
-The dashboard example retains the previous light design but includes historical personal/history cards; those require matching data and some historical service-specific cards are obsolete after this reconstruction. It is not an automatic dashboard migration.
+The official API profile schema documents `stats: {}` without enumerating all fields. Only known matching scalar fields are used as fallbacks; undocumented units and equivalent meanings are not inferred.
 
 ## Development
 
-See [migration design](docs/official-api-migration.md). Tests cover transport failures, conditional caching, backoff, public/private key isolation, normalized values, migration and entity selection. GitHub Actions runs tests, Ruff, HACS validation and hassfest.
+See [source and migration notes](docs/official-api-migration.md). The repository includes transport and config-flow coverage under `tests/`.
