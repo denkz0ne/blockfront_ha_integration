@@ -1,8 +1,7 @@
-"""Stable compatible sensors and new official API metrics."""
+"""Player, match, brigade, and source status sensors."""
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.const import EntityCategory
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -15,50 +14,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
     runtime = entry.runtime_data
     async_add_entities(
         [
-            OfficialSensor(runtime["coordinators"][row["endpoint"]], entry, row)
+            VuisSensor(runtime["coordinators"][row["endpoint"]], entry, row)
             for row in runtime["catalog"]
-            if row.get("platform") != "binary_sensor" and selected(entry, row)
+            if row.get("platform") != "binary_sensor"
+            and row["endpoint"] in runtime["coordinators"]
+            and selected(entry, row)
         ]
     )
 
-    profile = runtime["coordinators"].get("player")
-    if profile is not None:
-        discovered = set()
-        known = {
-            r.get("value_key", r["key"]) for r in runtime["catalog"] if r["endpoint"] == "player"
-        }
 
-        def discover_fields():
-            values = (profile.data or {}).get("values", {})
-            for key, value in values.items():
-                if not key.startswith("official_stat_") or key in discovered or value is None:
-                    continue
-                original = key.removeprefix("official_stat_")
-                if original in known or original == "timePlayedSeconds":
-                    continue
-                row = {"key": key, "endpoint": "player", "name": f"Official profile: {original}"}
-                discovered.add(key)
-                runtime["catalog"].append(row)
-                # Unknown fields require explicit selection; never reuse career IDs/units.
-                if key in entry.options.get("enabled_metrics", []):
-                    registry = er.async_get(hass)
-                    entity_id = registry.async_get_entity_id(
-                        "sensor", "blockfront", f"{entry.data['player_uuid']}_{key}"
-                    )
-                    registered = registry.async_get(entity_id) if entity_id else None
-                    if (
-                        registered
-                        and registered.disabled_by == er.RegistryEntryDisabler.INTEGRATION
-                    ):
-                        registry.async_update_entity(entity_id, disabled_by=None)
-                    async_add_entities([OfficialSensor(profile, entry, row)])
-
-        entry.async_on_unload(profile.async_add_listener(discover_fields))
-        discover_fields()
-
-
-class OfficialSensor(CoordinatorEntity, SensorEntity):
-    """Never change measurement identity when switching access modes."""
+class VuisSensor(CoordinatorEntity, SensorEntity):
+    """Expose normalized values while keeping player UUID-based identities."""
 
     def __init__(self, coordinator, entry, row):
         super().__init__(coordinator)
@@ -66,9 +32,9 @@ class OfficialSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{entry.data['player_uuid']}_{row['key']}"
         self._attr_has_entity_name = True
         fields = {
-            k: v
-            for k, v in row.items()
-            if k
+            key: value
+            for key, value in row.items()
+            if key
             in {
                 "key",
                 "name",
@@ -86,28 +52,27 @@ class OfficialSensor(CoordinatorEntity, SensorEntity):
             identifiers={("blockfront", entry.data["player_uuid"])},
             name=entry.data["username"],
             manufacturer="BlockFront",
-            model="Official API",
+            model="Vuis public stats with optional official API fallback",
         )
 
     @property
     def available(self):
-        return bool(
-            self.row.get("diagnostic") or (self.coordinator.data is not None and super().available)
-        )
+        if self.row.get("diagnostic"):
+            return True
+        return self.coordinator.data is not None and super().available
 
     @property
     def native_value(self):
         if self.row.get("diagnostic"):
             return "available" if self.coordinator.last_update_success else "unavailable"
-        data = self.coordinator.data or {}
         key = self.row.get("value_key", self.row["key"])
-        if self.row["key"] == "online_players":
-            key = "online_players"
-        elif self.row["endpoint"] == "player_matches":
-            key = self.row["key"]
-        value = data.get("values", {}).get(key)
-        if self.row["key"] in {"kd_ratio", "hs_kr"} and isinstance(value, (int, float)):
+        value = (self.coordinator.data or {}).get("values", {}).get(key)
+        if value is None:
+            return None
+        if key == "kd_ratio":
             return round(value, 2)
+        if key in {"rank_progress_percent", "win_rate"}:
+            return round(value, 1)
         return value
 
     @property

@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "BlockFront Official API",
-        "description": "Public data works without a key. Enter your UUID to preserve a stable player identity. Only official keys are accepted.",
+        "title": "BlockFront Player Statistics",
+        "description": "Enter the BlockFront player name. The integration finds the UUID from the public Vuis profile. An official API key is optional and only supplements missing values.",
         "data": {
           "username": "Player name",
-          "player_uuid": "Player UUID",
+          "player_uuid": "Player UUID (optional; found automatically)",
           "api_base_url": "Official API base URL",
           "api_key": "Official API key (optional)"
         }
@@ -16,7 +16,8 @@
       "invalid_username": "Enter a valid Minecraft username (3–16 letters, numbers, or underscores).",
       "invalid_api_url": "Enter a valid HTTP or HTTPS API base URL without credentials, query, or fragment.",
       "invalid_player": "The BlockFront player could not be found.",
-      "cannot_connect": "Could not contact the BlockFront statistics service. Try again later."
+      "cannot_connect": "Could not contact the BlockFront statistics service. Try again later.",
+      "invalid_api_key": "The official API key was rejected for this player."
     },
     "abort": {
       "already_configured": "This BlockFront player is already configured."
@@ -25,8 +26,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Official API: access and data",
-        "description": "An empty key field keeps the saved key. Use Remove saved API key to return to public-only mode. Private entity identities and recorded history are preserved. Data selection also controls endpoint polling. Map and brigade/match detail metrics are optional.",
+        "title": "Vuis + Official API data",
+        "description": "Vuis provides the public player profile, latest match and brigade statistics. An optional official API key fills fields that Vuis does not return. UUID is retained internally for stable entity identity. Select the values to create and set the refresh intervals.",
         "data": {
           "username": "Player name",
           "player_uuid": "Player UUID",
@@ -34,17 +35,9 @@
           "api_key": "Official API key (optional)",
           "remove_api_key": "Remove saved API key",
           "enabled_metrics": "Enabled data and entities",
-          "selected_map": "Selected map (exact name)",
-          "selected_mode": "Selected game mode",
-          "selected_team": "Selected team",
-          "player_count_interval": "player_count: refresh interval (seconds)",
-          "scoreboard_interval": "scoreboard: refresh interval (seconds)",
-          "map_stats_interval": "map_stats: refresh interval (seconds)",
-          "map_ratings_interval": "map_ratings: refresh interval (seconds)",
-          "player_interval": "player: refresh interval (seconds)",
-          "player_matches_interval": "player_matches: refresh interval (seconds)",
-          "clan_interval": "clan: refresh interval (seconds)",
-          "match_interval": "match: refresh interval (seconds)"
+          "vuis_profile_interval": "Vuis player profile refresh (seconds)",
+          "vuis_matches_interval": "Vuis latest match refresh (seconds)",
+          "vuis_brigade_interval": "Vuis brigade refresh (seconds)"
         }
       }
     }
@@ -113,9 +106,6 @@
       "bot_kills": {
         "name": "Bot kills"
       },
-      "captures": {
-        "name": "Captures"
-      },
       "exp": {
         "name": "Experience"
       },
@@ -134,9 +124,6 @@
       "highest_kill_streak": {
         "name": "Highest kill streak"
       },
-      "hs_kr": {
-        "name": "Headshot kill ratio"
-      },
       "infected_kills": {
         "name": "Infected kills"
       },
@@ -152,9 +139,6 @@
       "objective_score": {
         "name": "Objective score"
       },
-      "trophies": {
-        "name": "Trophies"
-      },
       "vehicle_kills": {
         "name": "Vehicle kills"
       },
@@ -169,9 +153,6 @@
       },
       "latest_match_score": {
         "name": "Latest match score"
-      },
-      "online_players": {
-        "name": "Players online"
       },
       "cloud_polling_status": {
         "name": "Online data source status"
@@ -196,9 +177,6 @@
       },
       "most_played_map": {
         "name": "Most played map"
-      },
-      "latest_match_duration": {
-        "name": "Latest match duration"
       },
       "latest_match_end": {
         "name": "Latest match end"
@@ -246,11 +224,107 @@
       },
       "featured_map": {
         "name": "Most played map details"
+      },
+      "kill_streak": {
+        "name": "Kill streak"
+      },
+      "death_streak": {
+        "name": "Death streak"
+      },
+      "wins": {
+        "name": "Wins"
+      },
+      "rank_exp_progress": {
+        "name": "Rank XP progress"
+      },
+      "rank_exp_required": {
+        "name": "XP required for rank"
+      },
+      "rank_exp_remaining": {
+        "name": "XP remaining for rank"
+      },
+      "rank_progress_percent": {
+        "name": "Rank progress"
+      },
+      "class_exp_rifleman": {
+        "name": "Rifleman XP"
+      },
+      "class_exp_lieutenant_rifle": {
+        "name": "Lieutenant Rifle XP"
+      },
+      "class_exp_assault": {
+        "name": "Assault XP"
+      },
+      "class_exp_support": {
+        "name": "Support XP"
+      },
+      "class_exp_medic": {
+        "name": "Medic XP"
+      },
+      "class_exp_sniper": {
+        "name": "Sniper XP"
+      },
+      "class_exp_gunner": {
+        "name": "Gunner XP"
+      },
+      "class_exp_anti_tank": {
+        "name": "Anti-Tank XP"
+      },
+      "latest_match_kills": {
+        "name": "Latest match kills"
+      },
+      "latest_match_deaths": {
+        "name": "Latest match deaths"
+      },
+      "latest_match_assists": {
+        "name": "Latest match assists"
+      },
+      "latest_match_placement": {
+        "name": "Latest match placement"
+      },
+      "latest_match_mode": {
+        "name": "Latest match mode"
+      },
+      "latest_match_map": {
+        "name": "Latest match map"
+      },
+      "latest_match_team": {
+        "name": "Latest match team"
+      },
+      "brigade_name": {
+        "name": "Brigade name"
+      },
+      "brigade_tag": {
+        "name": "Brigade tag"
+      },
+      "brigade_member_count": {
+        "name": "Brigade members"
+      },
+      "brigade_capacity": {
+        "name": "Brigade capacity"
+      },
+      "brigade_role": {
+        "name": "Your brigade role"
+      },
+      "brigade_rank": {
+        "name": "Brigade rank"
+      },
+      "brigade_score": {
+        "name": "Brigade score"
+      },
+      "latest_match_allies_score": {
+        "name": "Latest match Allies score"
+      },
+      "latest_match_axis_score": {
+        "name": "Latest match Axis score"
+      },
+      "win_rate": {
+        "name": "Win rate"
       }
     },
     "binary_sensor": {
       "bootcamp": {
-        "name": "Bootcamp"
+        "name": "Completed bootcamp"
       }
     }
   }

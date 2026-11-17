@@ -185,6 +185,8 @@ def values_for(endpoint, payload, *, selected_map="", mode="dom", team="Allies")
         values["rank"] = rank.get("title") if isinstance(rank, dict) else None
         clan = payload.get("clan")
         values["clan"] = clan.get("name") if isinstance(clan, dict) else None
+        values["brigade_name"] = clan.get("name") if isinstance(clan, dict) else None
+        values["brigade_tag"] = clan.get("tag") if isinstance(clan, dict) else None
         classes = payload.get("class_exp")
         if isinstance(classes, dict) and all(number(v) is not None for v in classes.values()):
             values["class_exp"] = sum(classes.values())

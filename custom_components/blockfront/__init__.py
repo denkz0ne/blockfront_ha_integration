@@ -1,22 +1,46 @@
-"""Official BlockFront API integration."""
+"""BlockFront statistics using Vuis public pages and optional official API data."""
 
 from homeassistant.const import Platform
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .official import DEFAULT_URL
+from .official import DEFAULT_URL, normalize_url
 from .official_runtime import catalog, create_official_runtime, selected
+from .vuis import VuisError, resolve_player
 
 DOMAIN = "blockfront"
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_migrate_entry(hass, entry):
-    """Discard obsolete provider settings without editing entities or recorder data."""
-    data = {k: entry.data[k] for k in ("username", "player_uuid") if k in entry.data}
-    data["api_base_url"] = DEFAULT_URL
-    # Legacy keys belong to a different provider and must never be forwarded.
-    hass.config_entries.async_update_entry(entry, data=data, options={}, version=4)
+    """Move official API keys safely and resolve missing UUIDs through public Vuis data."""
+    data = {key: entry.data[key] for key in ("username", "player_uuid") if key in entry.data}
+    options = {}
+    if entry.version >= 4:
+        api_key = entry.options.get("api_key") or entry.data.get("api_key", "")
+        try:
+            api_base_url = normalize_url(
+                entry.options.get("api_base_url")
+                or entry.data.get("api_base_url", DEFAULT_URL)
+            )
+        except ValueError:
+            api_base_url = DEFAULT_URL
+        if api_key:
+            options["api_key"] = api_key
+        data["api_base_url"] = api_base_url
+    else:
+        # Previous-provider credentials are intentionally never forwarded.
+        data["api_base_url"] = DEFAULT_URL
+    if not data.get("player_uuid") and data.get("username"):
+        try:
+            username, identity = await resolve_player(
+                async_get_clientsession(hass), data["username"]
+            )
+        except (VuisError, ValueError):
+            return False
+        data.update(username=username, player_uuid=identity)
+    hass.config_entries.async_update_entry(entry, data=data, options=options, version=5)
     return True
 
 
