@@ -113,6 +113,8 @@ async def test_registry_disables_unsupported_entities_and_respects_user_choice()
             call("sensor.online", disabled_by=RegistryEntryDisabler.INTEGRATION),
             call("sensor.assists", disabled_by=None),
         ]
+        entities[1].disabled_by = RegistryEntryDisabler.INTEGRATION
+        entities[3].disabled_by = None
         registry.async_update_entity.reset_mock()
 
         entry.options = {"enabled_metrics": ["kills"]}
